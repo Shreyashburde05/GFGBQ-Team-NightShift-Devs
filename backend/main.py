@@ -352,39 +352,7 @@ async def verify_single_citation(cit_text: str):
 @app.post("/api/verify", response_model=VerificationResponse)
 async def verify_claims(request: VerifyRequest):
     print(f"Received verification request for text: {request.text[:50]}...")
-    if not os.getenv("GEMINI_API_KEY") or os.getenv("GEMINI_API_KEY") == "Paste_Your_Google_Gemini_Key_Here":
-         # Mock response for demonstration if API key is missing
-         print("Using mock response (no API key)")
-         return VerificationResponse(
-             claims=[
-                 ClaimStatus(
-                     id=str(uuid.uuid4()),
-                     text="The Great Wall of China is visible from the moon.",
-                     status="hallucinated",
-                     confidence=95.0,
-                     explanation="This is a common myth. The Great Wall is not visible to the naked eye from the moon."
-                 ),
-                 ClaimStatus(
-                     id=str(uuid.uuid4()),
-                     text="Water boils at 100 degrees Celsius at sea level.",
-                     status="verified",
-                     confidence=99.0,
-                     source="National Institute of Standards and Technology",
-                     sourceUrl="https://www.nist.gov/",
-                     explanation="This is a well-established scientific fact."
-                 )
-             ],
-             citations=[
-                 CitationStatus(
-                     id=str(uuid.uuid4()),
-                     text="NASA (2023) Lunar Visibility Report",
-                     exists=False,
-                     checkingStatus="complete"
-                 )
-             ],
-             overallScore=50
-         )
-
+    
     # Step 1: Extract Claims and Citations
     print("Step 1: Extracting claims and citations...")
     extraction_prompt = f"""
