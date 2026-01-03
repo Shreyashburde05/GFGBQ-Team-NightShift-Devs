@@ -1,5 +1,8 @@
+// Configuration
+const API_BASE_URL = "http://localhost:8000"; // CHANGE THIS TO YOUR DEPLOYED BACKEND URL
+
 // Simple health check for the backend
-fetch('http://localhost:8000/')
+fetch(`${API_BASE_URL}/`)
     .then(() => {
         const statusEl = document.getElementById('backend-status');
         if (statusEl) {

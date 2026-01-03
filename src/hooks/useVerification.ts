@@ -2,7 +2,7 @@ import { useState, useCallback } from "react";
 import { Claim, Citation } from "@/components/AnalysisResults";
 import { toast } from "@/hooks/use-toast";
 
-const API_URL = "http://localhost:8000/api/verify";
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000/api/verify";
 
 export const useVerification = () => {
   const [isAnalyzing, setIsAnalyzing] = useState(false);

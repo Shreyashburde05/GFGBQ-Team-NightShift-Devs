@@ -18,6 +18,30 @@ nightshift-devs
 
 ---
 
+## Deployment Guide
+
+### 1. Deploy the Backend (Recommended: Render or Railway)
+1.  Create a new **Web Service** on [Render](https://render.com).
+2.  Connect your GitHub repository.
+3.  Set the **Root Directory** to `backend`.
+4.  **Build Command**: `pip install -r requirements.txt`
+5.  **Start Command**: `uvicorn main:app --host 0.0.0.0 --port $PORT`
+6.  Add your **Environment Variables** from `.env.example`.
+7.  Once deployed, copy the URL (e.g., `https://trustguard-api.onrender.com`).
+
+### 2. Update the Extension & Frontend
+1.  **Extension**: Open `extension/background.js` and `extension/popup.js`. Change `API_BASE_URL` to your deployed backend URL.
+2.  **Frontend**: When deploying the frontend (Vercel/Netlify), add an environment variable `VITE_API_URL` set to `https://your-backend-url.onrender.com/api/verify`.
+
+### 3. Deploy the Frontend (Recommended: Vercel)
+1.  Create a new project on [Vercel](https://vercel.com).
+2.  Connect your GitHub repository.
+3.  Vercel will automatically detect the Vite project.
+4.  Add the `VITE_API_URL` environment variable.
+5.  Deploy!
+
+---
+
 ## Project Overview
 TrustGuard AI is a comprehensive AI safety tool consisting of a **FastAPI Backend** and a **Chrome Extension**. It allows users to highlight any text on the web and instantly verify its accuracy. The system uses Google Gemini for claim extraction and verification, combined with DuckDuckGo for real-time fact-checking.
 

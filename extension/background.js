@@ -1,3 +1,6 @@
+// Configuration
+const API_BASE_URL = "http://localhost:8000"; // CHANGE THIS TO YOUR DEPLOYED BACKEND URL
+
 chrome.runtime.onInstalled.addListener(() => {
     chrome.contextMenus.create({
         id: "verifySelection",
@@ -33,7 +36,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             controller.abort();
         }, 45000); // 45 second timeout
 
-        fetch("http://localhost:8000/api/verify", {
+        fetch(`${API_BASE_URL}/api/verify`, {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
