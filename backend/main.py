@@ -189,12 +189,15 @@ async def verify_single_claim(claim_text: str):
     # Step 0: Generate a better search query
     search_query = claim_text
     try:
-        query_prompt = f"Generate a concise, 5-word search query to verify this claim: '{claim_text}'. Return ONLY the query string."
+        query_prompt = f"Generate a concise, 5-word search query to verify this claim: '{claim_text}'. Return ONLY the query string, no quotes or extra text."
         query_resp = await gemini_manager.model.generate_content_async(query_prompt)
         if query_resp.text:
-            search_query = query_resp.text.strip().strip('"')
-    except:
-        pass
+            candidate_query = query_resp.text.strip().strip('"').strip("'")
+            # Only use if it's reasonably short and not empty
+            if 0 < len(candidate_query) < 100:
+                search_query = candidate_query
+    except Exception as e:
+        print(f"Query generation failed, using original text: {e}")
 
     for attempt in range(max_retries):
         try:
@@ -463,7 +466,7 @@ async def verify_claims(request: VerifyRequest):
     else:
         # Verified = 1.0, Uncertain = 0.5, Hallucinated = 0.0
         score_map = {"verified": 1.0, "uncertain": 0.5, "hallucinated": 0.0}
-        total_points = sum(score_map.get(c.status, 0.0) for c in verified_claims)
+        total_points = sum(score_map.get(c.status.lower(), 0.0) for c in verified_claims)
         overall_score = int((total_points / len(verified_claims)) * 100)
 
     print(f"Verification complete. Overall Score: {overall_score}")

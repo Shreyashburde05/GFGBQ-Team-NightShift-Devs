@@ -283,8 +283,9 @@
 
             if (data.claims && data.claims.length > 0) {
                 data.claims.forEach(function(c) {
+                    var statusClass = (c.status || "uncertain").toLowerCase();
                     html += '<div class="tg-claim-card">';
-                    html += '<div class="tg-status tg-status-' + c.status.toLowerCase() + '">' + c.status + '</div>';
+                    html += '<div class="tg-status tg-status-' + statusClass + '">' + c.status + '</div>';
                     html += '<div style="font-size:14px; margin-bottom:8px;">"' + c.text + '"</div>';
                     if (c.explanation) {
                         html += '<div style="font-size:12px; color:#94a3b8; margin-bottom:8px;">' + c.explanation + '</div>';
