@@ -170,7 +170,8 @@ def search_web(query: str) -> dict:
             if response and response.get('results'):
                 results = response['results']
                 print(f"Tavily found {len(results)} results.")
-                combined_body = "\n".join([f"- {r.get('content', '')}" for r in results[:3]])
+                # Combine top 5 results for much richer context
+                combined_body = "\n".join([f"- [{r.get('title')}] {r.get('content', '')}" for r in results[:5]])
                 return {
                     "title": results[0].get('title', 'Multiple Sources'),
                     "body": combined_body,
@@ -265,13 +266,17 @@ async def verify_single_claim(claim_text: str):
             2. MEDIUM AUTHORITY: Wikipedia, specialized technical blogs, reputable niche news.
             3. LOW AUTHORITY: Quora, Reddit, personal blogs, social media, forums.
             
-            CRITICAL: If the only evidence found is from a LOW AUTHORITY source, you MUST set the status to "uncertain" and lower the confidence to below 40%, even if the source supports the claim. We only "verify" based on credible evidence.
+            CRITICAL: 
+            - If the only evidence found is from a LOW AUTHORITY source, you MUST set the status to "uncertain".
+            - Provide a detailed, in-depth explanation (2-3 sentences). 
+            - If there is a nuance (e.g., "tallest" vs "highest"), explain it clearly.
+            - Mention the specific source name used for verification.
             
             Return ONLY a JSON object:
             {{ 
                 "status": "verified" | "uncertain" | "hallucinated", 
                 "confidence": 0.0-1.0, 
-                "explanation": "A concise explanation. Mention the quality of the source used." 
+                "explanation": "A detailed explanation including source names and any nuances." 
             }}
             """
             
@@ -424,13 +429,13 @@ async def verify_claims(request: VerifyRequest):
     print("Step 1: Extracting claims and citations...")
     extraction_prompt = f"""
     Analyze the following text and extract:
-    1. Key factual claims (dates, facts, numbers, quotes). Limit to the 3 most important claims.
-    2. Any citations or references mentioned (papers, journals, authors). Limit to 2.
+    1. Key factual claims (dates, facts, numbers, quotes, scientific statements). Extract up to 6 distinct claims.
+    2. Any citations or references mentioned (papers, journals, authors, specific studies). Extract up to 4.
     
     Return ONLY a JSON object with this structure:
     {{
-        "claims": ["claim 1", "claim 2"],
-        "citations": ["citation 1", "citation 2"]
+        "claims": ["claim 1", "claim 2", ...],
+        "citations": ["citation 1", "citation 2", ...]
     }}
     
     Text: "{request.text}"
@@ -449,8 +454,8 @@ async def verify_claims(request: VerifyRequest):
                 raise ValueError("Empty response from model")
             resp_text = clean_json_response(extraction_response.text)
             extracted_data = json.loads(resp_text)
-            claims_list = extracted_data.get("claims", [])[:3]
-            citations_list = extracted_data.get("citations", [])[:2]
+            claims_list = extracted_data.get("claims", [])[:6]
+            citations_list = extracted_data.get("citations", [])[:4]
             print(f"Extracted {len(claims_list)} claims and {len(citations_list)} citations.")
             break
         except Exception as e:
