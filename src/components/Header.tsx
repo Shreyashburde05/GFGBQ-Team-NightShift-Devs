@@ -8,9 +8,9 @@ export const Header = () => {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="relative">
-              <div className="absolute inset-0 bg-primary/30 blur-xl rounded-full" />
-              <div className="relative w-10 h-10 rounded-xl bg-primary/10 border border-primary/20 overflow-hidden">
-                <img src="/logo.png" alt="TrustGuard Logo" className="w-full h-full object-cover" />
+              <div className="absolute inset-0 bg-primary/20 blur-2xl rounded-full" />
+              <div className="relative w-12 h-12 overflow-hidden">
+                <img src="/logo.png" alt="TrustGuard Logo" className="w-full h-full object-contain scale-110" />
               </div>
             </div>
             <div>
