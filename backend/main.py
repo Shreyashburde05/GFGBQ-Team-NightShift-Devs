@@ -11,6 +11,7 @@ import json
 import uuid
 import time
 import asyncio
+from groq import Groq
 
 load_dotenv()
 
@@ -34,6 +35,10 @@ class GeminiManager:
         
         # Support for a "Master Key" that is always active/fallback
         self.master_key = os.getenv("GEMINI_MASTER_KEY", "").strip()
+        
+        # Groq Fallback
+        self.groq_key = os.getenv("GROQ_API_KEY", "").strip()
+        self.groq_client = Groq(api_key=self.groq_key) if self.groq_key else None
         
         self.key_cooldowns = {i: 0 for i in range(len(self.keys))}
         self.current_key_index = 0
@@ -86,6 +91,24 @@ class GeminiManager:
             
         print("All API keys are currently rate-limited/on cooldown.")
         return False
+
+    async def call_groq_async(self, prompt: str):
+        """Calls Groq Llama 3 as a high-speed fallback."""
+        if not self.groq_client:
+            raise ValueError("Groq API key not configured")
+            
+        print("FALLBACK: Using Groq (Llama 3) for verification...")
+        loop = asyncio.get_event_loop()
+        response = await loop.run_in_executor(
+            None, 
+            lambda: self.groq_client.chat.completions.create(
+                messages=[{"role": "user", "content": prompt}],
+                model="llama-3.3-70b-versatile",
+                temperature=0.1,
+                max_tokens=1000
+            )
+        )
+        return response.choices[0].message.content
 
 gemini_manager = GeminiManager()
 
@@ -212,6 +235,25 @@ async def verify_single_claim(claim_text: str):
                     await asyncio.sleep(2)
                     continue
                 
+                # If all Gemini keys fail, try Groq as the ultimate fallback
+                if gemini_manager.groq_client:
+                    try:
+                        print(f"Gemini exhausted. Falling back to Groq for '{claim_text[:20]}'")
+                        groq_resp = await gemini_manager.call_groq_async(verification_prompt)
+                        v_text = clean_json_response(groq_resp)
+                        data = json.loads(v_text)
+                        return ClaimStatus(
+                            id=str(uuid.uuid4()),
+                            text=claim_text,
+                            status=data.get("status", "uncertain"),
+                            confidence=data.get("confidence", 0.5) * 100,
+                            source=search_result.get("title") if search_result else None,
+                            sourceUrl=search_result.get("href") if search_result else None,
+                            explanation=data.get("explanation", "")
+                        )
+                    except Exception as groq_err:
+                        print(f"Groq Fallback Error: {groq_err}")
+
                 wait_time = (attempt + 1) * 10
                 print(f"All keys exhausted. Waiting {wait_time}s...")
                 await asyncio.sleep(wait_time)
@@ -276,6 +318,23 @@ async def verify_single_citation(cit_text: str):
                     await asyncio.sleep(2)
                     continue
                 
+                # Groq Fallback for Citations
+                if gemini_manager.groq_client:
+                    try:
+                        print(f"Gemini exhausted. Falling back to Groq for citation '{cit_text[:20]}'")
+                        groq_resp = await gemini_manager.call_groq_async(citation_prompt)
+                        c_text = clean_json_response(groq_resp)
+                        data = json.loads(c_text)
+                        return CitationStatus(
+                            id=str(uuid.uuid4()),
+                            text=cit_text,
+                            exists=data.get("isReal", False) or (search_result is not None),
+                            url=search_result.get("href") if search_result else None,
+                            checkingStatus="complete"
+                        )
+                    except Exception as groq_err:
+                        print(f"Groq Fallback Error (Citation): {groq_err}")
+
                 wait_time = (attempt + 1) * 10
                 print(f"All keys exhausted for citation. Waiting {wait_time}s...")
                 await asyncio.sleep(wait_time)
@@ -368,6 +427,20 @@ async def verify_claims(request: VerifyRequest):
                     await asyncio.sleep(2)
                     continue
                 
+                # Groq Fallback for Extraction
+                if gemini_manager.groq_client:
+                    try:
+                        print("Gemini exhausted. Falling back to Groq for extraction...")
+                        groq_resp = await gemini_manager.call_groq_async(extraction_prompt)
+                        resp_text = clean_json_response(groq_resp)
+                        extracted_data = json.loads(resp_text)
+                        claims_list = extracted_data.get("claims", [])[:3]
+                        citations_list = extracted_data.get("citations", [])[:2]
+                        print(f"Extracted {len(claims_list)} claims and {len(citations_list)} citations via Groq.")
+                        break
+                    except Exception as groq_err:
+                        print(f"Groq Fallback Error (Extraction): {groq_err}")
+
                 wait_time = (attempt + 1) * 10
                 print(f"Extraction rate limit hit, all keys exhausted. Waiting {wait_time}s...")
                 await asyncio.sleep(wait_time)

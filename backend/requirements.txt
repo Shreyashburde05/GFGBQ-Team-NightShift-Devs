@@ -3,3 +3,4 @@ uvicorn
 google-generativeai
 duckduckgo-search
 python-dotenv
+groq
