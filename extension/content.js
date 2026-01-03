@@ -186,7 +186,13 @@
         modalOverlay.offsetHeight;
         modalOverlay.style.opacity = "1";
         
-        resultsContainer.innerHTML = '<div style="text-align:center;"><div class="tg-spinner"></div><p style="color:#94a3b8; font-size:13px;">Analyzing claims...</p></div>';
+        resultsContainer.innerHTML = `
+            <div style="text-align:center;">
+                <div class="tg-spinner"></div>
+                <p style="color:#94a3b8; font-size:13px;">Analyzing claims...</p>
+                <p style="color:#475569; font-size:11px; margin-top:10px;">This may take up to 30 seconds</p>
+            </div>
+        `;
 
         chrome.runtime.sendMessage({ action: "verifyText", text: selectedText }, function(response) {
             if (chrome.runtime.lastError || !response || !response.success) {
@@ -194,7 +200,17 @@
                 if (chrome.runtime.lastError) errMsg = chrome.runtime.lastError.message;
                 else if (response && response.error) errMsg = response.error;
                 
-                resultsContainer.innerHTML = '<div style="text-align:center; color:#f87171; padding:10px;"><p><strong>Verification Failed</strong></p><p style="font-size:12px;">' + errMsg + '</p></div>';
+                resultsContainer.innerHTML = `
+                    <div style="text-align:center; color:#f87171; padding:20px;">
+                        <div style="font-size:24px; margin-bottom:10px;">⚠️</div>
+                        <p><strong>Verification Failed</strong></p>
+                        <p style="font-size:12px; color:#94a3b8; margin-top:8px;">${errMsg}</p>
+                        <button id="tg-retry-btn" style="margin-top:15px; background:#1e293b; border:1px solid #334155; color:white; padding:6px 12px; border-radius:4px; cursor:pointer; font-size:12px;">Retry</button>
+                    </div>
+                `;
+                
+                const retryBtn = document.getElementById('tg-retry-btn');
+                if (retryBtn) retryBtn.onclick = startVerification;
                 return;
             }
 

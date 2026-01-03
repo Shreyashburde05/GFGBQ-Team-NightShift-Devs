@@ -14,18 +14,39 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
 
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (request.action === "verifyText") {
+        console.log("Background: Received verifyText request");
+        
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => {
+            console.log("Background: Request timed out");
+            controller.abort();
+        }, 45000); // 45 second timeout
+
         fetch("http://localhost:8000/api/verify", {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
             },
             body: JSON.stringify({ text: request.text }),
+            signal: controller.signal
         })
-        .then(response => response.json())
-        .then(data => sendResponse({ success: true, data }))
+        .then(response => {
+            clearTimeout(timeoutId);
+            console.log("Background: Received response from backend", response.status);
+            if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+            return response.json();
+        })
+        .then(data => {
+            console.log("Background: Sending data back to content script");
+            sendResponse({ success: true, data });
+        })
         .catch(error => {
-            console.error("Background Fetch Error:", error);
-            sendResponse({ success: false, error: error.message });
+            clearTimeout(timeoutId);
+            console.error("Background: Fetch Error:", error);
+            sendResponse({ 
+                success: false, 
+                error: error.name === 'AbortError' ? 'Request timed out (Backend took too long)' : error.message 
+            });
         });
         return true; // Keep the message channel open for async response
     }

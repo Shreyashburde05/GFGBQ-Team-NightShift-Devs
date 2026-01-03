@@ -54,12 +54,14 @@ class VerificationResponse(BaseModel):
 
 def search_web(query: str) -> dict:
     """Searches DuckDuckGo and returns the first result."""
+    print(f"Searching web for: {query[:50]}...")
     try:
         with DDGS() as ddgs:
-            # Add a small delay or retry logic if needed, but DDGS is usually fine
-            results = list(ddgs.text(query, max_results=3))
+            # Use a shorter timeout if possible, but DDGS doesn't expose it easily
+            # We'll just try to get results quickly
+            results = list(ddgs.text(query, max_results=2))
             if results:
-                # Try to find the best match or just return the first
+                print(f"Found results for: {query[:30]}")
                 return {
                     "title": results[0].get('title', 'No Title'),
                     "body": results[0].get('body', 'No Content'),
@@ -67,6 +69,7 @@ def search_web(query: str) -> dict:
                 }
     except Exception as e:
         print(f"Search Error for query '{query}': {e}")
+    print(f"No results found for: {query[:30]}")
     return {}
 
 @app.get("/")
@@ -91,8 +94,10 @@ def clean_json_response(text: str) -> str:
 
 @app.post("/api/verify", response_model=VerificationResponse)
 async def verify_claims(request: VerifyRequest):
+    print(f"Received verification request for text: {request.text[:50]}...")
     if not os.getenv("GEMINI_API_KEY") or os.getenv("GEMINI_API_KEY") == "Paste_Your_Google_Gemini_Key_Here":
          # Mock response for demonstration if API key is missing
+         print("Using mock response (no API key)")
          return VerificationResponse(
              claims=[
                  ClaimStatus(
@@ -124,6 +129,7 @@ async def verify_claims(request: VerifyRequest):
          )
 
     # Step 1: Extract Claims and Citations
+    print("Step 1: Extracting claims and citations...")
     extraction_prompt = f"""
     Analyze the following text and extract:
     1. Key factual claims (dates, facts, numbers, quotes).
@@ -146,18 +152,21 @@ async def verify_claims(request: VerifyRequest):
         extracted_data = json.loads(resp_text)
         claims_list = extracted_data.get("claims", [])
         citations_list = extracted_data.get("citations", [])
+        print(f"Extracted {len(claims_list)} claims and {len(citations_list)} citations.")
     except Exception as e:
         print(f"Extraction Error: {e}")
         # Fallback to simple split if JSON fails
         claims_list = [line.strip() for line in request.text.split('.') if len(line.strip()) > 20][:3]
         citations_list = []
+        print(f"Fallback: Extracted {len(claims_list)} claims.")
 
     verified_claims = []
     verified_citations = []
 
     # Step 2: Verify Claims
-    for claim_text in claims_list:
-        time.sleep(1) # Small delay to avoid rate limiting
+    print("Step 2: Verifying claims...")
+    for i, claim_text in enumerate(claims_list):
+        print(f"Verifying claim {i+1}/{len(claims_list)}: {claim_text[:50]}...")
         try:
             search_result = search_web(claim_text)
             evidence = f"Source: {search_result.get('title')} - {search_result.get('body')} (URL: {search_result.get('href')})" if search_result else "No evidence found."
@@ -205,8 +214,9 @@ async def verify_claims(request: VerifyRequest):
             ))
 
     # Step 3: Verify Citations
-    for cit_text in citations_list:
-        time.sleep(0.5) # Small delay
+    print("Step 3: Verifying citations...")
+    for i, cit_text in enumerate(citations_list):
+        print(f"Verifying citation {i+1}/{len(citations_list)}: {cit_text[:50]}...")
         search_result = search_web(cit_text)
         exists = True if search_result else False
         
@@ -225,6 +235,7 @@ async def verify_claims(request: VerifyRequest):
         verified_count = sum(1 for c in verified_claims if c.status == "verified")
         overall_score = int((verified_count / len(verified_claims)) * 100)
 
+    print(f"Verification complete. Overall Score: {overall_score}")
     return VerificationResponse(
         claims=verified_claims,
         citations=verified_citations,
