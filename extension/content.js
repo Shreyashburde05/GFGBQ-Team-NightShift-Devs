@@ -252,7 +252,7 @@
 
         chrome.runtime.sendMessage({ action: "verifyText", text: selectedText }, function(response) {
             if (chrome.runtime.lastError || !response || !response.success) {
-                var errMsg = "Backend unreachable. Is it running on localhost:8000?";
+                var errMsg = "Backend unreachable. Please check your internet connection or try again later.";
                 if (chrome.runtime.lastError) errMsg = chrome.runtime.lastError.message;
                 else if (response && response.error) errMsg = response.error;
                 
