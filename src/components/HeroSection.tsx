@@ -16,7 +16,7 @@ export const HeroSection = () => {
       
       <div className="relative container mx-auto px-4 text-center">
         <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 border border-primary/20 mb-6">
-          <Shield className="w-4 h-4 text-primary" />
+          <img src="/logo.png" alt="Logo" className="w-4 h-4 rounded-sm" />
           <span className="text-sm font-mono text-primary">AI Safety Tool</span>
         </div>
 

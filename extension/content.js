@@ -110,7 +110,22 @@
     // 3. Create UI Elements inside Shadow DOM
     const verifyBtn = document.createElement("button");
     verifyBtn.className = "tg-verify-btn";
-    verifyBtn.textContent = "🛡️ Verify with TrustGuard";
+    verifyBtn.style.display = "flex";
+    verifyBtn.style.alignItems = "center";
+    verifyBtn.style.gap = "8px";
+    
+    const btnIcon = document.createElement("img");
+    btnIcon.src = chrome.runtime.getURL("logo.png");
+    btnIcon.style.width = "16px";
+    btnIcon.style.height = "16px";
+    btnIcon.style.borderRadius = "2px";
+    
+    const btnText = document.createElement("span");
+    btnText.textContent = "Verify with TrustGuard";
+    
+    verifyBtn.appendChild(btnIcon);
+    verifyBtn.appendChild(btnText);
+    verifyBtn.style.display = "none"; // Hide initially
     shadow.appendChild(verifyBtn);
 
     const modalOverlay = document.createElement("div");
@@ -124,7 +139,18 @@
     
     const title = document.createElement("div");
     title.style.cssText = "font-weight:bold; display:flex; align-items:center; gap:8px;";
-    title.textContent = "🛡️ TrustGuard Analysis";
+    
+    const titleIcon = document.createElement("img");
+    titleIcon.src = chrome.runtime.getURL("logo.png");
+    titleIcon.style.width = "20px";
+    titleIcon.style.height = "20px";
+    titleIcon.style.borderRadius = "4px";
+    
+    const titleText = document.createElement("span");
+    titleText.textContent = "TrustGuard Analysis";
+    
+    title.appendChild(titleIcon);
+    title.appendChild(titleText);
     
     const closeBtn = document.createElement("button");
     closeBtn.className = "tg-close-btn";
