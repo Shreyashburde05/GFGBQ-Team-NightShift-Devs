@@ -24,10 +24,10 @@ export const Header = () => {
             </div>
           </div>
           <div className="flex items-center gap-3">
-            <Button variant="glass" size="sm" className="font-mono gap-2">
-              <Github className="w-4 h-4" />
-              <span className="hidden sm:inline">Source</span>
-            </Button>
+            <div className="hidden sm:flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 border border-primary/20">
+              <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
+              <span className="text-[10px] font-mono text-primary uppercase tracking-wider">System Active</span>
+            </div>
           </div>
         </div>
       </div>
