@@ -143,18 +143,19 @@ class VerificationResponse(BaseModel):
     overallScore: int
 
 def search_web(query: str) -> dict:
-    """Searches DuckDuckGo and returns the first result."""
+    """Searches DuckDuckGo and returns the first few results combined."""
     print(f"Searching web for: {query[:50]}...")
     try:
         with DDGS() as ddgs:
-            # Use a shorter timeout if possible, but DDGS doesn't expose it easily
-            # We'll just try to get results quickly
-            results = list(ddgs.text(query, max_results=2))
+            # Get more results for better context
+            results = list(ddgs.text(query, max_results=5))
             if results:
-                print(f"Found results for: {query[:30]}")
+                print(f"Found {len(results)} results for: {query[:30]}")
+                # Combine top 3 results for better evidence
+                combined_body = "\n".join([f"- {r.get('body', '')}" for r in results[:3]])
                 return {
-                    "title": results[0].get('title', 'No Title'),
-                    "body": results[0].get('body', 'No Content'),
+                    "title": results[0].get('title', 'Multiple Sources'),
+                    "body": combined_body,
                     "href": results[0].get('href', '#')
                 }
     except Exception as e:
@@ -194,38 +195,37 @@ async def verify_single_claim(claim_text: str):
     # Step 0: Generate a better search query
     search_query = claim_text
     try:
-        query_prompt = f"Generate a concise, 5-word search query to verify this claim: '{claim_text}'. Return ONLY the query string, no quotes or extra text."
+        query_prompt = f"Generate a highly specific search query to verify this factual claim: '{claim_text}'. Focus on finding data, statistics, or official confirmation. Return ONLY the query string."
         query_resp = await gemini_manager.model.generate_content_async(query_prompt)
         if query_resp.text:
             candidate_query = query_resp.text.strip().strip('"').strip("'")
-            # Only use if it's reasonably short and not empty
-            if 0 < len(candidate_query) < 100:
+            if 0 < len(candidate_query) < 150:
                 search_query = candidate_query
     except Exception as e:
-        print(f"Query generation failed, using original text: {e}")
+        print(f"Query generation failed: {e}")
 
     for attempt in range(max_retries):
         try:
             if search_result is None:
                 search_result = await search_web_async(search_query)
             
-            evidence = f"Source: {search_result.get('title')} - {search_result.get('body')} (URL: {search_result.get('href')})" if search_result else "No evidence found."
+            evidence = f"Source: {search_result.get('title')} - {search_result.get('body')} (URL: {search_result.get('href')})" if search_result and search_result.get('body') else "No relevant search results found."
             
             verification_prompt = f"""
-            You are a Fact Checker. 
+            You are an expert Fact Checker. 
             Claim: "{claim_text}"
             Evidence from Search: "{evidence}"
             
             Task: Determine verification status based on the evidence.
-            - "verified": Evidence directly supports the claim.
-            - "uncertain": Evidence is related but inconclusive, or no evidence found.
-            - "hallucinated": Evidence directly contradicts the claim.
+            - "verified": Evidence directly and clearly supports the claim.
+            - "uncertain": Evidence is missing, unrelated, or inconclusive.
+            - "hallucinated": Evidence directly contradicts the claim or the claim is a known common AI hallucination.
             
-            Return ONLY a JSON object with this structure:
+            Return ONLY a JSON object:
             {{ 
                 "status": "verified" | "uncertain" | "hallucinated", 
                 "confidence": 0.0-1.0, 
-                "explanation": "Short explanation of why this status was chosen" 
+                "explanation": "A concise explanation. If no evidence was found, state that clearly." 
             }}
             """
             
@@ -466,14 +466,27 @@ async def verify_claims(request: VerifyRequest):
     verified_citations = results[len(claim_tasks):]
 
     # Calculate Overall Score
-    # If no claims are found, we return 0 to indicate no verification was possible
     if not verified_claims:
         overall_score = 0
     else:
-        # Scoring Logic: Verified = 100%, Uncertain = 50%, Hallucinated = 0%
-        score_map = {"verified": 1.0, "uncertain": 0.5, "hallucinated": 0.0}
-        total_points = sum(score_map.get(c.status.lower(), 0.0) for c in verified_claims)
-        overall_score = int((total_points / len(verified_claims)) * 100)
+        # Scoring Logic: 
+        # Verified = 1.0 (100%)
+        # Uncertain = 0.3 (30%) - Conservative score for unproven claims
+        # Hallucinated = 0.0 (0%)
+        score_map = {"verified": 1.0, "uncertain": 0.3, "hallucinated": 0.0}
+        
+        total_weighted_score = 0.0
+        for c in verified_claims:
+            base_score = score_map.get(c.status.lower(), 0.0)
+            # If uncertain, we factor in confidence to penalize "I don't know" even more
+            if c.status.lower() == "uncertain":
+                # Confidence is 0-100. 
+                # If confidence is 0, score is 0. If confidence is 100, score is 0.3
+                total_weighted_score += base_score * (c.confidence / 100.0)
+            else:
+                total_weighted_score += base_score
+                
+        overall_score = int((total_weighted_score / len(verified_claims)) * 100)
 
     print(f"Verification complete. Overall Score: {overall_score}")
     return VerificationResponse(
