@@ -155,29 +155,37 @@
         }
     });
 
-    document.addEventListener("mouseup", function() {
-        const selection = window.getSelection();
-        const text = selection.toString().trim();
-        
-        if (text.length > 10) {
-            selectedText = text;
-            try {
-                const range = selection.getRangeAt(0);
-                const rect = range.getBoundingClientRect();
-                
-                verifyBtn.style.display = "block";
-                verifyBtn.style.top = (window.scrollY + rect.bottom + 10) + "px";
-                verifyBtn.style.left = (window.scrollX + rect.left) + "px";
-            } catch(e) {
-                console.log("TrustGuard: Could not position button", e);
+    document.addEventListener("mouseup", function(e) {
+        // Small delay to allow selection to stabilize
+        setTimeout(() => {
+            const selection = window.getSelection();
+            const text = selection.toString().trim();
+            
+            if (text.length > 10) {
+                console.log("TrustGuard: Text selected, showing button");
+                selectedText = text;
+                try {
+                    const range = selection.getRangeAt(0);
+                    const rect = range.getBoundingClientRect();
+                    
+                    verifyBtn.style.display = "block";
+                    verifyBtn.style.top = (window.scrollY + rect.bottom + 10) + "px";
+                    verifyBtn.style.left = (window.scrollX + rect.left) + "px";
+                } catch(err) {
+                    console.error("TrustGuard: Could not position button", err);
+                }
+            } else {
+                if (e.target !== verifyBtn) {
+                    verifyBtn.style.display = "none";
+                }
             }
-        } else {
-            verifyBtn.style.display = "none";
-        }
+        }, 10);
     });
 
     document.addEventListener("mousedown", function(e) {
-        if (e.target !== verifyBtn) verifyBtn.style.display = "none";
+        if (e.target !== verifyBtn && !verifyBtn.contains(e.target)) {
+            verifyBtn.style.display = "none";
+        }
     });
 
     function startVerification() {
