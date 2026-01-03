@@ -1,5 +1,5 @@
 // Configuration
-const API_BASE_URL = "http://localhost:8000"; // CHANGE THIS TO YOUR DEPLOYED BACKEND URL
+const API_BASE_URL = "https://trustguard-backend-5x5q.onrender.com"; // CHANGE THIS TO YOUR DEPLOYED BACKEND URL
 
 // Simple health check for the backend
 fetch(`${API_BASE_URL}/`)
