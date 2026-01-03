@@ -116,8 +116,8 @@
     
     const btnIcon = document.createElement("img");
     btnIcon.src = chrome.runtime.getURL("logo.png");
-    btnIcon.style.width = "16px";
-    btnIcon.style.height = "16px";
+    btnIcon.style.width = "22px";
+    btnIcon.style.height = "22px";
     btnIcon.style.borderRadius = "2px";
     
     const btnText = document.createElement("span");
@@ -142,8 +142,8 @@
     
     const titleIcon = document.createElement("img");
     titleIcon.src = chrome.runtime.getURL("logo.png");
-    titleIcon.style.width = "20px";
-    titleIcon.style.height = "20px";
+    titleIcon.style.width = "32px";
+    titleIcon.style.height = "32px";
     titleIcon.style.borderRadius = "4px";
     
     const titleText = document.createElement("span");
