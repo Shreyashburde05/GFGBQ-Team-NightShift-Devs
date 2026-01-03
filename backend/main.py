@@ -153,16 +153,24 @@ class VerificationResponse(BaseModel):
 
 def search_web(query: str) -> dict:
     """Searches Tavily (High Quality) or DuckDuckGo (Fallback) and returns results."""
+    # Domains to avoid for fact-checking
+    EXCLUDED_DOMAINS = ["quora.com", "reddit.com", "facebook.com", "twitter.com", "x.com", "instagram.com", "pinterest.com", "tumblr.com"]
+    
     # Try Tavily first if available
     if tavily_client:
         try:
             print(f"Searching Tavily for: {query[:50]}...")
             # Tavily is optimized for LLM context
-            response = tavily_client.search(query, search_depth="advanced", max_results=3)
+            response = tavily_client.search(
+                query, 
+                search_depth="advanced", 
+                max_results=5,
+                exclude_domains=EXCLUDED_DOMAINS
+            )
             if response and response.get('results'):
                 results = response['results']
                 print(f"Tavily found {len(results)} results.")
-                combined_body = "\n".join([f"- {r.get('content', '')}" for r in results])
+                combined_body = "\n".join([f"- {r.get('content', '')}" for r in results[:3]])
                 return {
                     "title": results[0].get('title', 'Multiple Sources'),
                     "body": combined_body,
@@ -175,10 +183,13 @@ def search_web(query: str) -> dict:
     print(f"Searching DuckDuckGo for: {query[:50]}...")
     try:
         with DDGS() as ddgs:
-            # Get more results for better context
-            results = list(ddgs.text(query, max_results=5))
+            # Get more results to filter
+            raw_results = list(ddgs.text(query, max_results=10))
+            # Filter out excluded domains
+            results = [r for r in raw_results if not any(domain in r.get('href', '').lower() for domain in EXCLUDED_DOMAINS)]
+            
             if results:
-                print(f"Found {len(results)} results for: {query[:30]}")
+                print(f"Found {len(results)} filtered results for: {query[:30]}")
                 # Combine top 3 results for better evidence
                 combined_body = "\n".join([f"- {r.get('body', '')}" for r in results[:3]])
                 return {
@@ -245,15 +256,22 @@ async def verify_single_claim(claim_text: str):
             Evidence from Search: "{evidence}"
             
             Task: Determine verification status based on the evidence.
-            - "verified": Evidence directly and clearly supports the claim.
-            - "uncertain": Evidence is missing, unrelated, or inconclusive.
+            - "verified": Evidence directly and clearly supports the claim from a reliable source.
+            - "uncertain": Evidence is missing, unrelated, inconclusive, or from a low-authority source.
             - "hallucinated": Evidence directly contradicts the claim or the claim is a known common AI hallucination.
+            
+            Source Reliability Guidelines:
+            1. HIGH AUTHORITY: Official news (Reuters, AP, BBC, NYT), government (.gov), academic (.edu), and established organizations (WHO, NASA).
+            2. MEDIUM AUTHORITY: Wikipedia, specialized technical blogs, reputable niche news.
+            3. LOW AUTHORITY: Quora, Reddit, personal blogs, social media, forums.
+            
+            CRITICAL: If the only evidence found is from a LOW AUTHORITY source, you MUST set the status to "uncertain" and lower the confidence to below 40%, even if the source supports the claim. We only "verify" based on credible evidence.
             
             Return ONLY a JSON object:
             {{ 
                 "status": "verified" | "uncertain" | "hallucinated", 
                 "confidence": 0.0-1.0, 
-                "explanation": "A concise explanation. If no evidence was found, state that clearly." 
+                "explanation": "A concise explanation. Mention the quality of the source used." 
             }}
             """
             
