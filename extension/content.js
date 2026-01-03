@@ -23,19 +23,22 @@
             background: #0f172a;
             color: white;
             border: 1px solid #38bdf8;
-            border-radius: 6px;
-            padding: 8px 14px;
+            border-radius: 10px;
+            padding: 10px 18px;
             cursor: pointer;
             font-family: system-ui, -apple-system, sans-serif;
-            font-size: 13px;
+            font-size: 14px;
             font-weight: 600;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-            transition: transform 0.2s, background 0.2s;
+            box-shadow: 0 10px 25px -5px rgba(0,0,0,0.5);
+            transition: transform 0.2s, background 0.2s, box-shadow 0.2s;
             line-height: 1;
+            white-space: nowrap;
+            align-items: center;
         }
         .tg-verify-btn:hover {
             background: #1e293b;
-            transform: scale(1.05);
+            transform: translateY(-2px);
+            box-shadow: 0 15px 30px -5px rgba(0,0,0,0.6);
         }
         .tg-modal-overlay {
             position: fixed;
@@ -201,9 +204,17 @@
                     const range = selection.getRangeAt(0);
                     const rect = range.getBoundingClientRect();
                     
-                    verifyBtn.style.display = "block";
-                    verifyBtn.style.top = (rect.bottom + 10) + "px";
-                    verifyBtn.style.left = rect.left + "px";
+                    verifyBtn.style.display = "flex";
+                    
+                    // Position logic: Center horizontally under selection
+                    const btnWidth = verifyBtn.offsetWidth || 200;
+                    let left = rect.left + (rect.width / 2) - (btnWidth / 2);
+                    
+                    // Keep within viewport bounds
+                    left = Math.max(10, Math.min(left, window.innerWidth - btnWidth - 10));
+                    
+                    verifyBtn.style.top = (rect.bottom + 15) + "px";
+                    verifyBtn.style.left = left + "px";
                 } catch(err) {
                     console.error("TrustGuard: Could not position button", err);
                 }
