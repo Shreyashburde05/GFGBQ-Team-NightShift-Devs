@@ -23,9 +23,10 @@ TrustGuard AI is a comprehensive AI safety tool consisting of a **FastAPI Backen
 
 ### Key Features:
 - **Real-time Fact Checking:** Cross-references claims with live search results.
-- **API Key Rotation:** Automatically switches between multiple Gemini API keys to bypass free-tier rate limits.
+- **API Key Rotation & Cooldown:** Automatically switches between multiple Gemini API keys with a 60s cooldown to bypass free-tier rate limits.
+- **Multi-LLM Fallback:** Uses Groq (Llama 3.3-70B) as a zero-downtime fallback if all Gemini keys are exhausted.
 - **Parallel Processing:** Verifies multiple claims simultaneously for faster results.
-- **Visual Trust Score:** Provides an overall percentage score and detailed explanations for each claim.
+- **Visual Trust Score:** Provides an overall percentage score (Verified=100%, Uncertain=50%, Hallucinated=0%) and detailed explanations.
 - **Citation Verification:** Checks if mentioned sources actually exist.
 
 ## Setup and Installation Instructions
@@ -47,7 +48,9 @@ pip install -r requirements.txt
 
 # Configure Environment Variables
 # Create a .env file in the backend folder:
-# GEMINI_API_KEYS=your_key_1,your_key_2
+# GEMINI_API_KEYS=key1,key2,key3
+# GEMINI_MASTER_KEY=your_primary_key
+# GROQ_API_KEY=your_groq_key
 # (You can add multiple keys separated by commas to enable automatic rotation)
 ```
 
