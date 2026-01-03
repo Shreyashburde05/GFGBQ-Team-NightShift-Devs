@@ -10,7 +10,7 @@ from ..core.utils import clean_json_response
 
 router = APIRouter()
 
-async def verify_single_claim(claim_text: str):
+async def verify_single_claim(claim_text: str, language: str = "en"):
     """Verifies a single claim in parallel with retries."""
     max_retries = 5
     search_result = None
@@ -18,6 +18,8 @@ async def verify_single_claim(claim_text: str):
     # Step 0: Generate a better search query
     search_query = claim_text
     try:
+        # We ask for a query that works best for verification. 
+        # Often English queries are better, but we let the model decide based on the claim.
         query_prompt = f"Generate a simple, effective search engine query to verify this claim: '{claim_text}'. Return ONLY the query string, no quotes."
         query_resp = await gemini_manager.model.generate_content_async(query_prompt)
         if query_resp.text:
@@ -44,11 +46,13 @@ async def verify_single_claim(claim_text: str):
             - "uncertain": Evidence is missing, unrelated, or inconclusive.
             - "hallucinated": Evidence directly contradicts the claim or the claim is a known common AI hallucination.
             
+            IMPORTANT: Provide the explanation in the detected language: {language}.
+            
             Return ONLY a JSON object:
             {{ 
                 "status": "verified" | "uncertain" | "hallucinated", 
                 "confidence": 0.0-1.0, 
-                "explanation": "A concise explanation. If no evidence was found, state that clearly." 
+                "explanation": "A concise explanation in {language}. If no evidence was found, state that clearly." 
             }}
             """
             
@@ -198,14 +202,16 @@ async def verify_claims(request: VerifyRequest):
     print(f"Received verification request for text: {request.text[:50]}...")
     
     # Step 1: Extract Claims and Citations
-    print("Step 1: Extracting claims and citations...")
+    print("Step 1: Extracting claims and citations with language detection...")
     extraction_prompt = f"""
     Analyze the following text and extract:
-    1. Key factual claims (dates, facts, numbers, quotes). Limit to the 3 most important claims.
-    2. Any citations or references mentioned (papers, journals, authors). Limit to 2.
+    1. The ISO 639-1 language code of the text (e.g., 'en', 'hi', 'es'). Default to 'en' if unsure.
+    2. Key factual claims (dates, facts, numbers, quotes). Limit to the 3 most important claims.
+    3. Any citations or references mentioned (papers, journals, authors). Limit to 2.
     
     Return ONLY a JSON object with this structure:
     {{
+        "language": "en",
         "claims": ["claim 1", "claim 2"],
         "citations": ["citation 1", "citation 2"]
     }}
@@ -215,6 +221,7 @@ async def verify_claims(request: VerifyRequest):
     
     claims_list = []
     citations_list = []
+    detected_language = "en"
     
     for attempt in range(3):
         try:
@@ -228,7 +235,8 @@ async def verify_claims(request: VerifyRequest):
             extracted_data = json.loads(resp_text)
             claims_list = extracted_data.get("claims", [])[:3]
             citations_list = extracted_data.get("citations", [])[:2]
-            print(f"Extracted {len(claims_list)} claims and {len(citations_list)} citations.")
+            detected_language = extracted_data.get("language", "en")
+            print(f"Extracted {len(claims_list)} claims in language '{detected_language}'.")
             break
         except Exception as e:
             err_str = str(e).lower()
@@ -274,7 +282,8 @@ async def verify_claims(request: VerifyRequest):
     async def sem_verify_claim(c):
         async with semaphore:
             await asyncio.sleep(1) # Small delay between requests
-            return await verify_single_claim(c)
+            # Pass the detected language to the verification function
+            return await verify_single_claim(c, language=detected_language)
             
     async def sem_verify_citation(c):
         async with semaphore:
