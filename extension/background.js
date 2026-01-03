@@ -1,3 +1,17 @@
+chrome.runtime.onInstalled.addListener(() => {
+    chrome.contextMenus.create({
+        id: "verifySelection",
+        title: "Verify with TrustGuard AI",
+        contexts: ["selection"]
+    });
+});
+
+chrome.contextMenus.onClicked.addListener((info, tab) => {
+    if (info.menuItemId === "verifySelection") {
+        chrome.tabs.sendMessage(tab.id, { action: "openModalWithText", text: info.selectionText });
+    }
+});
+
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (request.action === "verifyText") {
         fetch("http://localhost:8000/api/verify", {

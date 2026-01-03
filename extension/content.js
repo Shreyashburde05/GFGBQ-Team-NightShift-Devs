@@ -147,6 +147,14 @@
     closeBtn.onclick = hideModal;
     modalOverlay.onclick = function(e) { if (e.target === modalOverlay) hideModal(); };
 
+    // Handle messages from background script (e.g., from context menu)
+    chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+        if (request.action === "openModalWithText") {
+            selectedText = request.text;
+            startVerification();
+        }
+    });
+
     document.addEventListener("mouseup", function() {
         const selection = window.getSelection();
         const text = selection.toString().trim();
@@ -172,7 +180,7 @@
         if (e.target !== verifyBtn) verifyBtn.style.display = "none";
     });
 
-    verifyBtn.addEventListener("click", function() {
+    function startVerification() {
         verifyBtn.style.display = "none";
         modalOverlay.style.display = "flex";
         modalOverlay.offsetHeight;
@@ -222,6 +230,9 @@
 
             resultsContainer.innerHTML = html;
         });
-    });
+    }
+
+    verifyBtn.addEventListener("click", startVerification);
+})();
 })();
 
