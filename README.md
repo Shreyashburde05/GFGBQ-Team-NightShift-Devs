@@ -37,7 +37,7 @@ TrustGuard AI is a comprehensive AI safety tool consisting of a **FastAPI Backen
 - **Frontend**: React, TypeScript, Vite, Tailwind CSS, Shadcn UI, Lucide React.
 - **Backend**: FastAPI, Python, Uvicorn, Pydantic.
 - **AI Models**: Google Gemini 3 Flash (Preview), Groq (Llama 3.3 70B).
-- **Search API**: DuckDuckGo Search (DDGS).
+- **Search APIs**: Tavily AI (Primary/High-Quality), DuckDuckGo Search (Fallback/Zero-Config).
 - **Theme Management**: `next-themes`.
 
 ---
@@ -54,6 +54,7 @@ pip install -r requirements.txt
 # Create a .env file in the backend folder:
 # GEMINI_API_KEYS=key1,key2,key3
 # GROQ_API_KEY=your_groq_key
+# TAVILY_API_KEY=your_tavily_key (Optional, for better search results)
 ```
 
 ### 2. Frontend Setup

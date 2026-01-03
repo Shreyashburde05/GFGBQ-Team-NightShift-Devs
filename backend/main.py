@@ -12,10 +12,19 @@ import uuid
 import time
 import asyncio
 from groq import Groq
+try:
+    from tavily import TavilyClient
+    tavily_available = True
+except ImportError:
+    tavily_available = False
 
 load_dotenv()
 
 app = FastAPI(title="TrustGuard AI API")
+
+# Tavily Client for high-quality search (Optional)
+tavily_key = os.getenv("TAVILY_API_KEY", "").strip()
+tavily_client = TavilyClient(api_key=tavily_key) if tavily_available and tavily_key else None
 
 # Add CORS middleware
 app.add_middleware(
@@ -143,8 +152,27 @@ class VerificationResponse(BaseModel):
     overallScore: int
 
 def search_web(query: str) -> dict:
-    """Searches DuckDuckGo and returns the first few results combined."""
-    print(f"Searching web for: {query[:50]}...")
+    """Searches Tavily (High Quality) or DuckDuckGo (Fallback) and returns results."""
+    # Try Tavily first if available
+    if tavily_client:
+        try:
+            print(f"Searching Tavily for: {query[:50]}...")
+            # Tavily is optimized for LLM context
+            response = tavily_client.search(query, search_depth="advanced", max_results=3)
+            if response and response.get('results'):
+                results = response['results']
+                print(f"Tavily found {len(results)} results.")
+                combined_body = "\n".join([f"- {r.get('content', '')}" for r in results])
+                return {
+                    "title": results[0].get('title', 'Multiple Sources'),
+                    "body": combined_body,
+                    "href": results[0].get('url', '#')
+                }
+        except Exception as e:
+            print(f"Tavily Search Error: {e}")
+
+    # Fallback to DuckDuckGo
+    print(f"Searching DuckDuckGo for: {query[:50]}...")
     try:
         with DDGS() as ddgs:
             # Get more results for better context
@@ -195,7 +223,7 @@ async def verify_single_claim(claim_text: str):
     # Step 0: Generate a better search query
     search_query = claim_text
     try:
-        query_prompt = f"Generate a highly specific search query to verify this factual claim: '{claim_text}'. Focus on finding data, statistics, or official confirmation. Return ONLY the query string."
+        query_prompt = f"Generate a simple, effective search engine query to verify this claim: '{claim_text}'. Return ONLY the query string, no quotes."
         query_resp = await gemini_manager.model.generate_content_async(query_prompt)
         if query_resp.text:
             candidate_query = query_resp.text.strip().strip('"').strip("'")
