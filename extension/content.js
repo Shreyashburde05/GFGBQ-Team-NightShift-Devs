@@ -3,6 +3,7 @@
  * Handles text selection, UI injection, and communication with background script.
  */
 
+(function() {
     // 1. Create Shadow DOM Container
     const container = document.createElement('div');
     container.id = 'tg-root';
@@ -256,7 +257,12 @@
             }
 
             var data = response.data;
-            var html = '<div style="text-align:center; margin-bottom:20px;"><div style="font-size:32px; font-weight:bold; color:#38bdf8;">' + data.overallScore + '%</div><div style="font-size:12px; color:#94a3b8; text-transform:uppercase; letter-spacing:1px;">Trust Score</div></div>';
+            if (!data) {
+                resultsContainer.innerHTML = '<div style="text-align:center; padding:20px; color:#f87171;">Invalid response from server.</div>';
+                return;
+            }
+            
+            var html = '<div style="text-align:center; margin-bottom:20px;"><div style="font-size:32px; font-weight:bold; color:#38bdf8;">' + (data.overallScore || 0) + '%</div><div style="font-size:12px; color:#94a3b8; text-transform:uppercase; letter-spacing:1px;">Trust Score</div></div>';
 
             if (data.claims && data.claims.length > 0) {
                 data.claims.forEach(function(c) {
