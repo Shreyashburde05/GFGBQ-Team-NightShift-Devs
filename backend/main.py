@@ -185,10 +185,21 @@ async def verify_single_claim(claim_text: str):
     """Verifies a single claim in parallel with retries."""
     max_retries = 5
     search_result = None
+    
+    # Step 0: Generate a better search query
+    search_query = claim_text
+    try:
+        query_prompt = f"Generate a concise, 5-word search query to verify this claim: '{claim_text}'. Return ONLY the query string."
+        query_resp = await gemini_manager.model.generate_content_async(query_prompt)
+        if query_resp.text:
+            search_query = query_resp.text.strip().strip('"')
+    except:
+        pass
+
     for attempt in range(max_retries):
         try:
             if search_result is None:
-                search_result = await search_web_async(claim_text)
+                search_result = await search_web_async(search_query)
             
             evidence = f"Source: {search_result.get('title')} - {search_result.get('body')} (URL: {search_result.get('href')})" if search_result else "No evidence found."
             
@@ -198,7 +209,9 @@ async def verify_single_claim(claim_text: str):
             Evidence from Search: "{evidence}"
             
             Task: Determine verification status based on the evidence.
-            Status options: "verified", "uncertain", "hallucinated".
+            - "verified": Evidence directly supports the claim.
+            - "uncertain": Evidence is related but inconclusive, or no evidence found.
+            - "hallucinated": Evidence directly contradicts the claim.
             
             Return ONLY a JSON object with this structure:
             {{ 
@@ -448,8 +461,10 @@ async def verify_claims(request: VerifyRequest):
     if not verified_claims:
         overall_score = 100
     else:
-        verified_count = sum(1 for c in verified_claims if c.status == "verified")
-        overall_score = int((verified_count / len(verified_claims)) * 100)
+        # Verified = 1.0, Uncertain = 0.5, Hallucinated = 0.0
+        score_map = {"verified": 1.0, "uncertain": 0.5, "hallucinated": 0.0}
+        total_points = sum(score_map.get(c.status, 0.0) for c in verified_claims)
+        overall_score = int((total_points / len(verified_claims)) * 100)
 
     print(f"Verification complete. Overall Score: {overall_score}")
     return VerificationResponse(

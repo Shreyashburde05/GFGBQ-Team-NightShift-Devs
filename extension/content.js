@@ -273,7 +273,13 @@
                 return;
             }
             
-            var html = '<div style="text-align:center; margin-bottom:20px;"><div style="font-size:32px; font-weight:bold; color:#38bdf8;">' + (data.overallScore || 0) + '%</div><div style="font-size:12px; color:#94a3b8; text-transform:uppercase; letter-spacing:1px;">Trust Score</div></div>';
+            var score = data.overallScore || 0;
+            var scoreColor = "#38bdf8"; // Default blue
+            if (score >= 80) scoreColor = "#22c55e"; // Green
+            else if (score >= 50) scoreColor = "#fbbf24"; // Yellow
+            else scoreColor = "#f87171"; // Red
+            
+            var html = '<div style="text-align:center; margin-bottom:20px;"><div style="font-size:32px; font-weight:bold; color:' + scoreColor + ';">' + score + '%</div><div style="font-size:12px; color:#94a3b8; text-transform:uppercase; letter-spacing:1px;">Trust Score</div></div>';
 
             if (data.claims && data.claims.length > 0) {
                 data.claims.forEach(function(c) {
