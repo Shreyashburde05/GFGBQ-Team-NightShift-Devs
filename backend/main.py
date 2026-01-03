@@ -27,19 +27,22 @@ app.add_middleware(
 )
 
 # Gemini Manager for API Key Rotation
+# This class handles the "Truth Layer" resilience by rotating between multiple API keys
+# and falling back to Groq (Llama 3) if all Gemini keys are rate-limited.
 class GeminiManager:
     def __init__(self):
         # Support both GEMINI_API_KEY (single) and GEMINI_API_KEYS (comma-separated)
         keys_str = os.getenv("GEMINI_API_KEYS", os.getenv("GEMINI_API_KEY", ""))
         self.keys = [k.strip() for k in keys_str.split(",") if k.strip() and k.strip() != "Paste_Your_Google_Gemini_Key_Here"]
         
-        # Support for a "Master Key" that is always active/fallback
+        # Support for a "Master Key" that is always active/fallback (e.g. a paid tier key)
         self.master_key = os.getenv("GEMINI_MASTER_KEY", "").strip()
         
-        # Groq Fallback
+        # Groq Fallback - Used when Gemini is completely unavailable
         self.groq_key = os.getenv("GROQ_API_KEY", "").strip()
         self.groq_client = Groq(api_key=self.groq_key) if self.groq_key else None
         
+        # Track cooldowns for each key to avoid repeated 429 errors
         self.key_cooldowns = {i: 0 for i in range(len(self.keys))}
         self.current_key_index = 0
         self.using_master = False
@@ -47,6 +50,7 @@ class GeminiManager:
         self.refresh_model()
 
     def refresh_model(self):
+        """Configures the generative AI model with the currently active key."""
         key = self.master_key if self.using_master else (self.keys[self.current_key_index] if self.keys else None)
         if not key:
             print("Warning: No Gemini API keys found!")
@@ -54,9 +58,10 @@ class GeminiManager:
             
         print(f"Using Gemini API Key {'MASTER' if self.using_master else f'#{self.current_key_index + 1}'}")
         genai.configure(api_key=key)
-        self.model = genai.GenerativeModel('gemini-3-flash-preview')
+        self.model = genai.GenerativeModel('gemini-1.5-flash') # Using Flash for speed/cost efficiency
 
     def switch_key(self):
+        """Rotates to the next available API key that is not on cooldown."""
         # If we have a master key and we aren't using it yet, switch to it as a last resort
         if self.master_key and not self.using_master:
             # Check if all regular keys are on cooldown
@@ -70,7 +75,7 @@ class GeminiManager:
         if not self.keys:
             return False
             
-        # Mark current regular key as on cooldown
+        # Mark current regular key as on cooldown (60s is standard for Gemini free tier)
         if not self.using_master:
             self.key_cooldowns[self.current_key_index] = time.time() + 60
         
@@ -461,10 +466,11 @@ async def verify_claims(request: VerifyRequest):
     verified_citations = results[len(claim_tasks):]
 
     # Calculate Overall Score
+    # If no claims are found, we return 0 to indicate no verification was possible
     if not verified_claims:
-        overall_score = 100
+        overall_score = 0
     else:
-        # Verified = 1.0, Uncertain = 0.5, Hallucinated = 0.0
+        # Scoring Logic: Verified = 100%, Uncertain = 50%, Hallucinated = 0%
         score_map = {"verified": 1.0, "uncertain": 0.5, "hallucinated": 0.0}
         total_points = sum(score_map.get(c.status.lower(), 0.0) for c in verified_claims)
         overall_score = int((total_points / len(verified_claims)) * 100)

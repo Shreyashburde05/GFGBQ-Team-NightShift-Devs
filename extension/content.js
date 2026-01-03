@@ -1,6 +1,9 @@
 /**
  * TrustGuard AI - Content Script
  * Handles text selection, UI injection, and communication with background script.
+ * 
+ * We use a Shadow DOM to isolate our styles from the host website, ensuring
+ * that TrustGuard's UI looks consistent regardless of the site's CSS.
  */
 
 (function() {
@@ -273,11 +276,12 @@
                 return;
             }
             
+            // Dynamic color coding based on the trust score
             var score = data.overallScore || 0;
             var scoreColor = "#38bdf8"; // Default blue
-            if (score >= 80) scoreColor = "#22c55e"; // Green
-            else if (score >= 50) scoreColor = "#fbbf24"; // Yellow
-            else scoreColor = "#f87171"; // Red
+            if (score >= 80) scoreColor = "#22c55e"; // Verified (Green)
+            else if (score >= 50) scoreColor = "#fbbf24"; // Uncertain (Yellow)
+            else scoreColor = "#f87171"; // Hallucinated (Red)
             
             var html = '<div style="text-align:center; margin-bottom:20px;"><div style="font-size:32px; font-weight:bold; color:' + scoreColor + ';">' + score + '%</div><div style="font-size:12px; color:#94a3b8; text-transform:uppercase; letter-spacing:1px;">Trust Score</div></div>';
 
@@ -295,6 +299,8 @@
                     }
                     html += '</div>';
                 });
+            } else {
+                html += '<div style="text-align:center; padding:20px; color:#94a3b8; font-size:14px;">No specific factual claims were detected in this text.</div>';
             }
 
             if (data.citations && data.citations.length > 0) {

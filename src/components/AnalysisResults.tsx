@@ -34,6 +34,23 @@ export const AnalysisResults = ({
   overallScore,
   isAnalyzing,
 }: AnalysisResultsProps) => {
+  if (claims.length === 0 && !isAnalyzing) {
+    return (
+      <div className="glass rounded-2xl p-12 text-center border-dashed border-2">
+        <div className="w-16 h-16 rounded-full bg-muted/20 flex items-center justify-center mx-auto mb-4">
+          <FileText className="w-8 h-8 text-muted-foreground" />
+        </div>
+        <h3 className="font-mono font-semibold text-xl text-foreground mb-2">
+          No Claims Detected
+        </h3>
+        <p className="text-muted-foreground max-w-md mx-auto">
+          Our AI couldn't find any specific factual claims to verify in this text. 
+          Try providing content with more specific facts, dates, or citations.
+        </p>
+      </div>
+    );
+  }
+
   const verifiedCount = claims.filter((c) => c.status === "verified").length;
   const uncertainCount = claims.filter((c) => c.status === "uncertain").length;
   const falseCount = claims.filter((c) => c.status === "hallucinated").length;
