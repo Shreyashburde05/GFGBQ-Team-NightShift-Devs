@@ -258,5 +258,4 @@
 
     verifyBtn.addEventListener("click", startVerification);
 })();
-})();
 
