@@ -31,6 +31,7 @@ class GeminiManager:
         # Support both GEMINI_API_KEY (single) and GEMINI_API_KEYS (comma-separated)
         keys_str = os.getenv("GEMINI_API_KEYS", os.getenv("GEMINI_API_KEY", ""))
         self.keys = [k.strip() for k in keys_str.split(",") if k.strip() and k.strip() != "Paste_Your_Google_Gemini_Key_Here"]
+        self.key_cooldowns = {i: 0 for i in range(len(self.keys))}
         self.current_key_index = 0
         self.model = None
         self.refresh_model()
@@ -47,11 +48,20 @@ class GeminiManager:
         if len(self.keys) <= 1:
             print(f"No alternative API keys available. Current key index: {self.current_key_index}")
             return False
-        old_index = self.current_key_index
-        self.current_key_index = (self.current_key_index + 1) % len(self.keys)
-        print(f"SWITCHING API KEY: From index {old_index} to {self.current_key_index}")
-        self.refresh_model()
-        return True
+        
+        # Mark current key as on cooldown
+        self.key_cooldowns[self.current_key_index] = time.time() + 60
+        
+        # Find next key not on cooldown
+        for _ in range(len(self.keys)):
+            self.current_key_index = (self.current_key_index + 1) % len(self.keys)
+            if time.time() > self.key_cooldowns[self.current_key_index]:
+                print(f"SWITCHING API KEY: Now using index {self.current_key_index}")
+                self.refresh_model()
+                return True
+        
+        print("All API keys are currently rate-limited/on cooldown.")
+        return False
 
 gemini_manager = GeminiManager()
 
@@ -127,9 +137,12 @@ def clean_json_response(text: str) -> str:
 async def verify_single_claim(claim_text: str):
     """Verifies a single claim in parallel with retries."""
     max_retries = 3
+    search_result = None
     for attempt in range(max_retries):
         try:
-            search_result = await search_web_async(claim_text)
+            if search_result is None:
+                search_result = await search_web_async(claim_text)
+            
             evidence = f"Source: {search_result.get('title')} - {search_result.get('body')} (URL: {search_result.get('href')})" if search_result else "No evidence found."
             
             verification_prompt = f"""
@@ -171,11 +184,12 @@ async def verify_single_claim(claim_text: str):
             if is_rate_limit and attempt < max_retries - 1:
                 # Try switching key if rate limited
                 if gemini_manager.switch_key():
-                    print(f"Retrying immediately with new API key for '{claim_text[:20]}'")
+                    print(f"Retrying with new API key for '{claim_text[:20]}'. Waiting 2s...")
+                    await asyncio.sleep(2)
                     continue
                 
-                wait_time = (attempt + 1) * 5
-                print(f"Rate limit hit, retrying in {wait_time}s...")
+                wait_time = (attempt + 1) * 10
+                print(f"All keys exhausted. Waiting {wait_time}s...")
                 await asyncio.sleep(wait_time)
                 continue
             
@@ -193,16 +207,64 @@ async def verify_single_claim(claim_text: str):
             )
 
 async def verify_single_citation(cit_text: str):
-    """Verifies a single citation in parallel."""
-    search_result = await search_web_async(cit_text)
-    exists = True if search_result else False
-    return CitationStatus(
-        id=str(uuid.uuid4()),
-        text=cit_text,
-        exists=exists,
-        url=search_result.get("href") if search_result else None,
-        checkingStatus="complete"
-    )
+    """Verifies a single citation in parallel with retries."""
+    max_retries = 3
+    search_result = None
+    for attempt in range(max_retries):
+        try:
+            if search_result is None:
+                search_result = await search_web_async(cit_text)
+            
+            citation_prompt = f"""
+            You are a Citation Validator.
+            Citation: "{cit_text}"
+            Search Result: "{search_result.get('title') if search_result else 'No results'}"
+            
+            Task: Verify if this citation is likely real or fabricated.
+            Return ONLY a JSON object:
+            {{
+                "isReal": true | false,
+                "confidence": 0.0-1.0
+            }}
+            """
+            
+            citation_resp = await gemini_manager.model.generate_content_async(citation_prompt)
+            if not citation_resp.text:
+                raise ValueError("Empty citation response")
+                
+            c_text = clean_json_response(citation_resp.text)
+            data = json.loads(c_text)
+            
+            return CitationStatus(
+                id=str(uuid.uuid4()),
+                text=cit_text,
+                exists=data.get("isReal", False) or (search_result is not None),
+                url=search_result.get("href") if search_result else None,
+                checkingStatus="complete"
+            )
+        except Exception as e:
+            err_str = str(e).lower()
+            is_rate_limit = "429" in err_str or "quota" in err_str or "limit" in err_str or isinstance(e, google_exceptions.ResourceExhausted)
+            
+            if is_rate_limit and attempt < max_retries - 1:
+                if gemini_manager.switch_key():
+                    print(f"Retrying citation with new API key. Waiting 2s...")
+                    await asyncio.sleep(2)
+                    continue
+                
+                wait_time = (attempt + 1) * 10
+                print(f"All keys exhausted for citation. Waiting {wait_time}s...")
+                await asyncio.sleep(wait_time)
+                continue
+                
+            print(f"Citation Verification Error: {e}")
+            return CitationStatus(
+                id=str(uuid.uuid4()),
+                text=cit_text,
+                exists=search_result is not None,
+                url=search_result.get("href") if search_result else None,
+                checkingStatus="complete"
+            )
 
 @app.post("/api/verify", response_model=VerificationResponse)
 async def verify_claims(request: VerifyRequest):
@@ -278,10 +340,13 @@ async def verify_claims(request: VerifyRequest):
             is_rate_limit = "429" in err_str or "quota" in err_str or "limit" in err_str or isinstance(e, google_exceptions.ResourceExhausted)
             if is_rate_limit and attempt < 2:
                 if gemini_manager.switch_key():
-                    print("Switched API key during extraction. Retrying immediately...")
+                    print("Switched API key during extraction. Waiting 2s...")
+                    await asyncio.sleep(2)
                     continue
-                print(f"Extraction rate limit hit, retrying in 5s...")
-                await asyncio.sleep(5)
+                
+                wait_time = (attempt + 1) * 10
+                print(f"Extraction rate limit hit, all keys exhausted. Waiting {wait_time}s...")
+                await asyncio.sleep(wait_time)
                 continue
             
             error_msg = "Rate limit reached" if is_rate_limit else str(e)
@@ -292,10 +357,10 @@ async def verify_claims(request: VerifyRequest):
             print(f"Fallback: Extracted {len(claims_list)} claims.")
             break
 
-# Step 2 & 3: Verify in Parallel with Concurrency Limit
+    # Step 2 & 3: Verify in Parallel with Concurrency Limit
     print("Step 2 & 3: Verifying claims and citations in parallel...")
     
-    semaphore = asyncio.Semaphore(1) # Limit to 1 concurrent request to be safe with free tier rate limits
+    semaphore = asyncio.Semaphore(2) # Increased to 2 since we have rotation
     
     async def sem_verify_claim(c):
         async with semaphore:

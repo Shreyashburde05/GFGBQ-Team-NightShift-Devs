@@ -48,6 +48,7 @@ pip install -r requirements.txt
 # Configure Environment Variables
 # Create a .env file in the backend folder:
 # GEMINI_API_KEYS=your_key_1,your_key_2
+# (You can add multiple keys separated by commas to enable automatic rotation)
 ```
 
 ### 2. Frontend/Extension Setup
