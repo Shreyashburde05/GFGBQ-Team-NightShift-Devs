@@ -58,7 +58,7 @@ class GeminiManager:
             
         print(f"Using Gemini API Key {'MASTER' if self.using_master else f'#{self.current_key_index + 1}'}")
         genai.configure(api_key=key)
-        self.model = genai.GenerativeModel('gemini-1.5-flash') # Using Flash for speed/cost efficiency
+        self.model = genai.GenerativeModel('gemini-3-flash-preview') # Using Gemini 3 Flash Preview
 
     def switch_key(self):
         """Rotates to the next available API key that is not on cooldown."""

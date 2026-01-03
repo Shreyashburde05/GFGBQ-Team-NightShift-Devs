@@ -20,7 +20,7 @@ nightshift-devs
 ---
 
 ## 🚀 Project Overview
-TrustGuard AI is a comprehensive AI safety tool consisting of a **FastAPI Backend**, a **React Web Dashboard**, and a **Chrome Extension**. It allows users to highlight any text on the web and instantly verify its accuracy. The system uses Google Gemini for claim extraction and verification, combined with DuckDuckGo for real-time fact-checking.
+TrustGuard AI is a comprehensive AI safety tool consisting of a **FastAPI Backend**, a **React Web Dashboard**, and a **Chrome Extension**. It allows users to highlight any text on the web and instantly verify its accuracy. The system uses Google Gemini 3 Flash (Preview) for claim extraction and verification, combined with DuckDuckGo for real-time fact-checking.
 
 ### ✨ Key Features:
 - **Real-time Fact Checking:** Cross-references claims with live search results using AI-generated search queries.
@@ -36,7 +36,7 @@ TrustGuard AI is a comprehensive AI safety tool consisting of a **FastAPI Backen
 ## 🛠️ Tech Stack
 - **Frontend**: React, TypeScript, Vite, Tailwind CSS, Shadcn UI, Lucide React.
 - **Backend**: FastAPI, Python, Uvicorn, Pydantic.
-- **AI Models**: Google Gemini 1.5 Pro/Flash, Groq (Llama 3.3 70B).
+- **AI Models**: Google Gemini 3 Flash (Preview), Groq (Llama 3.3 70B).
 - **Search API**: DuckDuckGo Search (DDGS).
 - **Theme Management**: `next-themes`.
 
