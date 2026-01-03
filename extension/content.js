@@ -3,109 +3,115 @@
  * Handles text selection, UI injection, and communication with background script.
  */
 
-(function() {
-    console.log("TrustGuard AI: Content Script Initialized");
+    // 1. Create Shadow DOM Container
+    const container = document.createElement('div');
+    container.id = 'tg-root';
+    document.body.appendChild(container);
+    const shadow = container.attachShadow({ mode: 'open' });
 
-    // 1. Inject Styles
-    if (!document.getElementById('tg-styles')) {
-        const style = document.createElement('style');
-        style.id = 'tg-styles';
-        style.textContent = `
-            .tg-verify-btn {
-                position: absolute;
-                display: none;
-                z-index: 2147483647;
-                background: #0f172a;
-                color: white;
-                border: 1px solid #38bdf8;
-                border-radius: 6px;
-                padding: 8px 14px;
-                cursor: pointer;
-                font-family: system-ui, -apple-system, sans-serif;
-                font-size: 13px;
-                font-weight: 600;
-                box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-                transition: transform 0.2s, background 0.2s;
-                line-height: 1;
-            }
-            .tg-verify-btn:hover {
-                background: #1e293b;
-                transform: scale(1.05);
-            }
-            .tg-modal-overlay {
-                position: fixed;
-                top: 0; left: 0; width: 100%; height: 100%;
-                background: rgba(0,0,0,0.7);
-                backdrop-filter: blur(4px);
-                z-index: 2147483646;
-                display: none;
-                justify-content: center;
-                align-items: center;
-                opacity: 0;
-                transition: opacity 0.3s;
-            }
-            .tg-modal {
-                background: #0f172a;
-                border: 1px solid #334155;
-                border-radius: 12px;
-                width: 90%;
-                max-width: 450px;
-                max-height: 80vh;
-                overflow-y: auto;
-                color: #f8fafc;
-                font-family: system-ui, sans-serif;
-                box-shadow: 0 20px 25px -5px rgba(0,0,0,0.5);
-            }
-            .tg-modal-header {
-                padding: 16px;
-                border-bottom: 1px solid #1e293b;
-                display: flex;
-                justify-content: space-between;
-                align-items: center;
-                background: #1e293b;
-            }
-            .tg-close-btn {
-                background: none; border: none; color: #94a3b8;
-                cursor: pointer; font-size: 20px;
-            }
-            .tg-modal-body { padding: 20px; }
-            .tg-claim-card {
-                background: #1e293b;
-                border: 1px solid #334155;
-                border-radius: 8px;
-                padding: 12px;
-                margin-bottom: 12px;
-            }
-            .tg-status {
-                display: inline-block;
-                padding: 2px 8px;
-                border-radius: 10px;
-                font-size: 10px;
-                font-weight: 700;
-                text-transform: uppercase;
-                margin-bottom: 8px;
-            }
-            .tg-status-verified { background: #064e3b; color: #34d399; }
-            .tg-status-uncertain { background: #451a03; color: #fbbf24; }
-            .tg-status-hallucinated { background: #450a0a; color: #f87171; }
-            .tg-spinner {
-                width: 30px; height: 30px;
-                border: 3px solid rgba(56, 189, 248, 0.2);
-                border-top-color: #38bdf8;
-                border-radius: 50%;
-                animation: tg-spin 0.8s linear infinite;
-                margin: 20px auto;
-            }
-            @keyframes tg-spin { to { transform: rotate(360deg); } }
-        `;
-        document.head.appendChild(style);
-    }
+    // 2. Inject Styles into Shadow DOM
+    const style = document.createElement('style');
+    style.textContent = `
+        :host {
+            all: initial; /* Reset all inherited styles */
+        }
+        .tg-verify-btn {
+            position: fixed;
+            display: none;
+            z-index: 2147483647;
+            background: #0f172a;
+            color: white;
+            border: 1px solid #38bdf8;
+            border-radius: 6px;
+            padding: 8px 14px;
+            cursor: pointer;
+            font-family: system-ui, -apple-system, sans-serif;
+            font-size: 13px;
+            font-weight: 600;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            transition: transform 0.2s, background 0.2s;
+            line-height: 1;
+        }
+        .tg-verify-btn:hover {
+            background: #1e293b;
+            transform: scale(1.05);
+        }
+        .tg-modal-overlay {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.7);
+            backdrop-filter: blur(4px);
+            z-index: 2147483646;
+            display: none;
+            justify-content: center;
+            align-items: center;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+        .tg-modal {
+            background: #0f172a;
+            border: 1px solid #334155;
+            border-radius: 12px;
+            width: 90%;
+            max-width: 450px;
+            max-height: 80vh;
+            overflow-y: auto;
+            color: #f8fafc;
+            font-family: system-ui, sans-serif;
+            box-shadow: 0 20px 25px -5px rgba(0,0,0,0.5);
+        }
+        .tg-modal-header {
+            padding: 16px;
+            border-bottom: 1px solid #1e293b;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: #1e293b;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+        .tg-close-btn {
+            background: none; border: none; color: #94a3b8;
+            cursor: pointer; font-size: 20px;
+        }
+        .tg-modal-body { padding: 20px; }
+        .tg-claim-card {
+            background: #1e293b;
+            border: 1px solid #334155;
+            border-radius: 8px;
+            padding: 12px;
+            margin-bottom: 12px;
+        }
+        .tg-status {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 10px;
+            font-weight: 700;
+            text-transform: uppercase;
+            margin-bottom: 8px;
+        }
+        .tg-status-verified { background: #064e3b; color: #34d399; }
+        .tg-status-uncertain { background: #451a03; color: #fbbf24; }
+        .tg-status-hallucinated { background: #450a0a; color: #f87171; }
+        .tg-spinner {
+            width: 30px; height: 30px;
+            border: 3px solid rgba(56, 189, 248, 0.2);
+            border-top-color: #38bdf8;
+            border-radius: 50%;
+            animation: tg-spin 0.8s linear infinite;
+            margin: 20px auto;
+        }
+        @keyframes tg-spin { to { transform: rotate(360deg); } }
+    `;
+    shadow.appendChild(style);
 
-    // 2. Create UI Elements
+    // 3. Create UI Elements inside Shadow DOM
     const verifyBtn = document.createElement("button");
     verifyBtn.className = "tg-verify-btn";
     verifyBtn.textContent = "🛡️ Verify with TrustGuard";
-    document.body.appendChild(verifyBtn);
+    shadow.appendChild(verifyBtn);
 
     const modalOverlay = document.createElement("div");
     modalOverlay.className = "tg-modal-overlay";
@@ -134,9 +140,9 @@
     modal.appendChild(header);
     modal.appendChild(resultsContainer);
     modalOverlay.appendChild(modal);
-    document.body.appendChild(modalOverlay);
+    shadow.appendChild(modalOverlay);
 
-    // 3. Logic
+    // 4. Logic
     let selectedText = "";
 
     const hideModal = function() {
@@ -169,13 +175,14 @@
                     const rect = range.getBoundingClientRect();
                     
                     verifyBtn.style.display = "block";
-                    verifyBtn.style.top = (window.scrollY + rect.bottom + 10) + "px";
-                    verifyBtn.style.left = (window.scrollX + rect.left) + "px";
+                    verifyBtn.style.top = (rect.bottom + 10) + "px";
+                    verifyBtn.style.left = rect.left + "px";
                 } catch(err) {
                     console.error("TrustGuard: Could not position button", err);
                 }
             } else {
-                if (e.target !== verifyBtn) {
+                // Check if click was outside the shadow root
+                if (!container.contains(e.target)) {
                     verifyBtn.style.display = "none";
                 }
             }
@@ -183,7 +190,7 @@
     });
 
     document.addEventListener("mousedown", function(e) {
-        if (e.target !== verifyBtn && !verifyBtn.contains(e.target)) {
+        if (!container.contains(e.target)) {
             verifyBtn.style.display = "none";
         }
     });
@@ -217,7 +224,7 @@
                     </div>
                 `;
                 
-                const retryBtn = document.getElementById('tg-retry-btn');
+                const retryBtn = shadow.getElementById('tg-retry-btn');
                 if (retryBtn) retryBtn.onclick = startVerification;
                 return;
             }
