@@ -8,7 +8,18 @@ chrome.runtime.onInstalled.addListener(() => {
 
 chrome.contextMenus.onClicked.addListener((info, tab) => {
     if (info.menuItemId === "verifySelection") {
-        chrome.tabs.sendMessage(tab.id, { action: "openModalWithText", text: info.selectionText });
+        chrome.tabs.sendMessage(tab.id, { action: "openModalWithText", text: info.selectionText }, (response) => {
+            if (chrome.runtime.lastError) {
+                console.warn("Could not send message to tab. Content script might not be loaded.");
+                // Fallback: Try to inject the content script if it's missing
+                chrome.scripting.executeScript({
+                    target: { tabId: tab.id },
+                    files: ["content.js"]
+                }).then(() => {
+                    chrome.tabs.sendMessage(tab.id, { action: "openModalWithText", text: info.selectionText });
+                }).catch(err => console.error("Failed to inject content script:", err));
+            }
+        });
     }
 });
 

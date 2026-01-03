@@ -4,11 +4,13 @@ from pydantic import BaseModel
 from typing import List, Optional
 import os
 import google.generativeai as genai
+from google.api_core import exceptions as google_exceptions
 from duckduckgo_search import DDGS
 from dotenv import load_dotenv
 import json
 import uuid
 import time
+import asyncio
 
 load_dotenv()
 
@@ -23,9 +25,35 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Configure Gemini
-genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
-model = genai.GenerativeModel('gemini-3-flash-preview')
+# Gemini Manager for API Key Rotation
+class GeminiManager:
+    def __init__(self):
+        # Support both GEMINI_API_KEY (single) and GEMINI_API_KEYS (comma-separated)
+        keys_str = os.getenv("GEMINI_API_KEYS", os.getenv("GEMINI_API_KEY", ""))
+        self.keys = [k.strip() for k in keys_str.split(",") if k.strip() and k.strip() != "Paste_Your_Google_Gemini_Key_Here"]
+        self.current_key_index = 0
+        self.model = None
+        self.refresh_model()
+
+    def refresh_model(self):
+        if not self.keys:
+            print("Warning: No Gemini API keys found!")
+            return
+        print(f"Using Gemini API Key #{self.current_key_index + 1}")
+        genai.configure(api_key=self.keys[self.current_key_index])
+        self.model = genai.GenerativeModel('gemini-3-flash-preview')
+
+    def switch_key(self):
+        if len(self.keys) <= 1:
+            print(f"No alternative API keys available. Current key index: {self.current_key_index}")
+            return False
+        old_index = self.current_key_index
+        self.current_key_index = (self.current_key_index + 1) % len(self.keys)
+        print(f"SWITCHING API KEY: From index {old_index} to {self.current_key_index}")
+        self.refresh_model()
+        return True
+
+gemini_manager = GeminiManager()
 
 class VerifyRequest(BaseModel):
     text: str
@@ -72,6 +100,10 @@ def search_web(query: str) -> dict:
     print(f"No results found for: {query[:30]}")
     return {}
 
+async def search_web_async(query: str) -> dict:
+    """Searches DuckDuckGo and returns the first result (Async)."""
+    return await asyncio.to_thread(search_web, query)
+
 @app.get("/")
 def read_root():
     return {"message": "TrustGuard AI Backend is Running"}
@@ -91,6 +123,86 @@ def clean_json_response(text: str) -> str:
         text = text[start_idx:end_idx+1]
     
     return text
+
+async def verify_single_claim(claim_text: str):
+    """Verifies a single claim in parallel with retries."""
+    max_retries = 3
+    for attempt in range(max_retries):
+        try:
+            search_result = await search_web_async(claim_text)
+            evidence = f"Source: {search_result.get('title')} - {search_result.get('body')} (URL: {search_result.get('href')})" if search_result else "No evidence found."
+            
+            verification_prompt = f"""
+            You are a Fact Checker. 
+            Claim: "{claim_text}"
+            Evidence from Search: "{evidence}"
+            
+            Task: Determine verification status based on the evidence.
+            Status options: "verified", "uncertain", "hallucinated".
+            
+            Return ONLY a JSON object with this structure:
+            {{ 
+                "status": "verified" | "uncertain" | "hallucinated", 
+                "confidence": 0.0-1.0, 
+                "explanation": "Short explanation of why this status was chosen" 
+            }}
+            """
+            
+            verification_resp = await gemini_manager.model.generate_content_async(verification_prompt)
+            if not verification_resp.text:
+                raise ValueError("Empty verification response")
+                
+            v_text = clean_json_response(verification_resp.text)
+            data = json.loads(v_text)
+            
+            return ClaimStatus(
+                id=str(uuid.uuid4()),
+                text=claim_text,
+                status=data.get("status", "uncertain"),
+                confidence=data.get("confidence", 0.5) * 100,
+                source=search_result.get("title") if search_result else None,
+                sourceUrl=search_result.get("href") if search_result else None,
+                explanation=data.get("explanation", "")
+            )
+        except Exception as e:
+            err_str = str(e).lower()
+            is_rate_limit = "429" in err_str or "quota" in err_str or "limit" in err_str or isinstance(e, google_exceptions.ResourceExhausted)
+            
+            if is_rate_limit and attempt < max_retries - 1:
+                # Try switching key if rate limited
+                if gemini_manager.switch_key():
+                    print(f"Retrying immediately with new API key for '{claim_text[:20]}'")
+                    continue
+                
+                wait_time = (attempt + 1) * 5
+                print(f"Rate limit hit, retrying in {wait_time}s...")
+                await asyncio.sleep(wait_time)
+                continue
+            
+            error_msg = str(e)
+            if is_rate_limit:
+                error_msg = "Rate limit reached. Please wait a minute or add more API keys to .env"
+            
+            print(f"Claim Verification Error: {error_msg}")
+            return ClaimStatus(
+                id=str(uuid.uuid4()),
+                text=claim_text,
+                status="uncertain",
+                confidence=50.0,
+                explanation=f"Verification failed: {error_msg}"
+            )
+
+async def verify_single_citation(cit_text: str):
+    """Verifies a single citation in parallel."""
+    search_result = await search_web_async(cit_text)
+    exists = True if search_result else False
+    return CitationStatus(
+        id=str(uuid.uuid4()),
+        text=cit_text,
+        exists=exists,
+        url=search_result.get("href") if search_result else None,
+        checkingStatus="complete"
+    )
 
 @app.post("/api/verify", response_model=VerificationResponse)
 async def verify_claims(request: VerifyRequest):
@@ -132,8 +244,8 @@ async def verify_claims(request: VerifyRequest):
     print("Step 1: Extracting claims and citations...")
     extraction_prompt = f"""
     Analyze the following text and extract:
-    1. Key factual claims (dates, facts, numbers, quotes).
-    2. Any citations or references mentioned (papers, journals, authors).
+    1. Key factual claims (dates, facts, numbers, quotes). Limit to the 3 most important claims.
+    2. Any citations or references mentioned (papers, journals, authors). Limit to 2.
     
     Return ONLY a JSON object with this structure:
     {{
@@ -144,89 +256,63 @@ async def verify_claims(request: VerifyRequest):
     Text: "{request.text}"
     """
     
-    try:
-        extraction_response = model.generate_content(extraction_prompt)
-        if not extraction_response.text:
-            raise ValueError("Empty response from model")
-        resp_text = clean_json_response(extraction_response.text)
-        extracted_data = json.loads(resp_text)
-        claims_list = extracted_data.get("claims", [])
-        citations_list = extracted_data.get("citations", [])
-        print(f"Extracted {len(claims_list)} claims and {len(citations_list)} citations.")
-    except Exception as e:
-        print(f"Extraction Error: {e}")
-        # Fallback to simple split if JSON fails
-        claims_list = [line.strip() for line in request.text.split('.') if len(line.strip()) > 20][:3]
-        citations_list = []
-        print(f"Fallback: Extracted {len(claims_list)} claims.")
-
-    verified_claims = []
-    verified_citations = []
-
-    # Step 2: Verify Claims
-    print("Step 2: Verifying claims...")
-    for i, claim_text in enumerate(claims_list):
-        print(f"Verifying claim {i+1}/{len(claims_list)}: {claim_text[:50]}...")
+    claims_list = []
+    citations_list = []
+    
+    for attempt in range(3):
         try:
-            search_result = search_web(claim_text)
-            evidence = f"Source: {search_result.get('title')} - {search_result.get('body')} (URL: {search_result.get('href')})" if search_result else "No evidence found."
-            
-            verification_prompt = f"""
-            You are a Fact Checker. 
-            Claim: "{claim_text}"
-            Evidence from Search: "{evidence}"
-            
-            Task: Determine verification status based on the evidence.
-            Status options: "verified", "uncertain", "hallucinated".
-            
-            Return ONLY a JSON object with this structure:
-            {{ 
-                "status": "verified" | "uncertain" | "hallucinated", 
-                "confidence": 0.0-1.0, 
-                "explanation": "Short explanation of why this status was chosen" 
-            }}
-            """
-            
-            verification_resp = model.generate_content(verification_prompt)
-            if not verification_resp.text:
-                raise ValueError("Empty verification response")
+            if not gemini_manager.model:
+                raise ValueError("Gemini model not initialized. Check your API keys.")
                 
-            v_text = clean_json_response(verification_resp.text)
-            data = json.loads(v_text)
-            
-            verified_claims.append(ClaimStatus(
-                id=str(uuid.uuid4()),
-                text=claim_text,
-                status=data.get("status", "uncertain"),
-                confidence=data.get("confidence", 0.5) * 100,
-                source=search_result.get("title") if search_result else None,
-                sourceUrl=search_result.get("href") if search_result else None,
-                explanation=data.get("explanation", "")
-            ))
+            extraction_response = await gemini_manager.model.generate_content_async(extraction_prompt)
+            if not extraction_response.text:
+                raise ValueError("Empty response from model")
+            resp_text = clean_json_response(extraction_response.text)
+            extracted_data = json.loads(resp_text)
+            claims_list = extracted_data.get("claims", [])[:3]
+            citations_list = extracted_data.get("citations", [])[:2]
+            print(f"Extracted {len(claims_list)} claims and {len(citations_list)} citations.")
+            break
         except Exception as e:
-            print(f"Claim Verification Error for '{claim_text}': {e}")
-            verified_claims.append(ClaimStatus(
-                id=str(uuid.uuid4()),
-                text=claim_text,
-                status="uncertain",
-                confidence=50.0,
-                explanation=f"Verification failed: {str(e)}"
-            ))
+            err_str = str(e).lower()
+            is_rate_limit = "429" in err_str or "quota" in err_str or "limit" in err_str or isinstance(e, google_exceptions.ResourceExhausted)
+            if is_rate_limit and attempt < 2:
+                if gemini_manager.switch_key():
+                    print("Switched API key during extraction. Retrying immediately...")
+                    continue
+                print(f"Extraction rate limit hit, retrying in 5s...")
+                await asyncio.sleep(5)
+                continue
+            
+            error_msg = "Rate limit reached" if is_rate_limit else str(e)
+            print(f"Extraction Error: {error_msg}")
+            # Fallback to simple split if JSON fails
+            claims_list = [line.strip() for line in request.text.split('.') if len(line.strip()) > 20][:2]
+            citations_list = []
+            print(f"Fallback: Extracted {len(claims_list)} claims.")
+            break
 
-    # Step 3: Verify Citations
-    print("Step 3: Verifying citations...")
-    for i, cit_text in enumerate(citations_list):
-        print(f"Verifying citation {i+1}/{len(citations_list)}: {cit_text[:50]}...")
-        search_result = search_web(cit_text)
-        exists = True if search_result else False
-        
-        verified_citations.append(CitationStatus(
-            id=str(uuid.uuid4()),
-            text=cit_text,
-            exists=exists,
-            url=search_result.get("href") if search_result else None,
-            checkingStatus="complete"
-        ))
+# Step 2 & 3: Verify in Parallel with Concurrency Limit
+    print("Step 2 & 3: Verifying claims and citations in parallel...")
+    
+    semaphore = asyncio.Semaphore(1) # Limit to 1 concurrent request to be safe with free tier rate limits
+    
+    async def sem_verify_claim(c):
+        async with semaphore:
+            await asyncio.sleep(1) # Small delay between requests
+            return await verify_single_claim(c)
+            
+    async def sem_verify_citation(c):
+        async with semaphore:
+            return await verify_single_citation(c)
+    
+    claim_tasks = [sem_verify_claim(c) for c in claims_list]
+    citation_tasks = [sem_verify_citation(c) for c in citations_list]
+    
+    results = await asyncio.gather(*claim_tasks, *citation_tasks)
+    
+    verified_claims = results[:len(claim_tasks)]
+    verified_citations = results[len(claim_tasks):]
 
     # Calculate Overall Score
     if not verified_claims:
