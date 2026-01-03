@@ -1,5 +1,5 @@
-import { Shield, Github } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { ThemeToggle } from "./ThemeToggle";
 
 export const Header = () => {
   return (
@@ -28,6 +28,7 @@ export const Header = () => {
               <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
               <span className="text-[10px] font-mono text-primary uppercase tracking-wider">System Active</span>
             </div>
+            <ThemeToggle />
           </div>
         </div>
       </div>
