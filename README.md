@@ -5,7 +5,7 @@ Generative AI models often produce "hallucinations"—factual errors presented w
 TrustGuard AI (AI Trust Beacon)
 
 # 3. Team Name
-nightshift-devs
+NightShift-Devs
 
 # 4. Deployed Link (optional)
 - **Frontend**: [https://trustguard-ai-nightshift.vercel.app](https://trustguard-ai-nightshift.vercel.app) (Replace with your actual Vercel URL)
@@ -30,6 +30,7 @@ TrustGuard AI is a comprehensive AI safety tool consisting of a **FastAPI Backen
 - **Parallel Processing:** Verifies multiple claims simultaneously for near-instant results.
 - **Dark/Light Mode:** Fully responsive UI with a high-tech "Cyber" dark mode and a clean, professional light mode.
 - **Citation Verification:** Checks if mentioned sources actually exist and provides direct evidence links.
+- **Multilingual Support:** Automatically detects the input language (e.g., Hindi, Spanish) and provides verification explanations in the native language.
 
 ---
 
@@ -54,7 +55,9 @@ pip install -r requirements.txt
 # Create a .env file in the backend folder:
 # GEMINI_API_KEYS=key1,key2,key3
 # GROQ_API_KEY=your_groq_key
-# TAVILY_API_KEY=your_tavily_key (Optional, for better search results)
+# TAVILY_API_KEY=your_tavily_key
+# Run the server:
+python -m uvicorn main:app --port 8000 --reload
 ```
 
 ### 2. Frontend Setup
@@ -79,7 +82,12 @@ npm run dev
    - Highlight any text on any website.
    - Right-click and select **"Verify with TrustGuard AI"**.
    - Click the floating **Verify** button to see the truth layer.
+   - Click the floating **Verify** button to see the truth layer.
 3. **Theme Toggle**: Use the Sun/Moon icon in the header to switch between Dark and Light modes.
+
+## 📸 Relevant Screenshots
+*(Detailed screenshots will be added here)*
+
 
 ---
 
@@ -100,7 +108,8 @@ npm run dev
 
 ## 👥 Team - nightshift-devs
 - **Abhinav Vaidya** - [GitHub](https://github.com/abhi9vaidya)
-- **Team Member 2** - [GitHub](https://github.com/...)
+- **Shreyash Burde** - [GitHub](https://github.com/Shreyashburde05)
+**Meet Yemde** - [GitHub](https://github.com/kmeet124)
 
 ---
 *Built for the GFG ByteQuest Hackathon 2025.*
