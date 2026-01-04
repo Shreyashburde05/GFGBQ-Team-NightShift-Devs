@@ -5,3 +5,4 @@ duckduckgo-search
 python-dotenv
 groq
 tavily-python
+requests
