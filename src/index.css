@@ -70,6 +70,26 @@
     --gradient-hallucinated: linear-gradient(135deg, hsl(0 72% 51% / 0.1) 0%, transparent 100%);
   }
 
+  /* Custom Scrollbar */
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: hsl(var(--background));
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: hsl(var(--muted));
+    border-radius: 5px;
+    border: 2px solid hsl(var(--background));
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--muted-foreground) / 0.5);
+  }
+
   .dark {
     --background: 220 20% 6%;
     --foreground: 210 40% 96%;
