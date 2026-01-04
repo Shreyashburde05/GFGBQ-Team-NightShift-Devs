@@ -8,7 +8,7 @@ TrustGuard AI (AI Trust Beacon)
 NightShift-Devs
 
 # 4. Deployed Link (optional)
-- **Frontend**: [https://trustguard-ai-nightshift.vercel.app](https://trustguard-ai-nightshift.vercel.app) (Replace with your actual Vercel URL)
+- **Frontend**: https://trustguard-ai-safety.vercel.app/
 - **Backend API**: [https://trustguard-backend-5x5q.onrender.com](https://trustguard-backend-5x5q.onrender.com)
 
 # 5. 2-minute Demonstration Video link
