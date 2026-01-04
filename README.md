@@ -15,7 +15,7 @@ NightShift-Devs
 [Insert Video Link Here]
 
 # 6. PPT Link
-[Insert PPT Link Here]
+[https://docs.google.com/presentation/d/1YJ4fISFQleYsSJWTPzwEKuOM0V34qpYM/edit?usp=sharing&ouid=111070728364722151974&rtpof=true&sd=true]
 
 ---
 
