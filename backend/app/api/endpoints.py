@@ -42,17 +42,26 @@ async def verify_single_claim(claim_text: str, language: str = "en"):
             Evidence from Search: "{evidence}"
             
             Task: Determine verification status based on the evidence.
-            - "verified": Evidence directly and clearly supports the claim.
-            - "uncertain": Evidence is missing, unrelated, or inconclusive.
+            - "verified": Evidence directly and clearly supports the claim from a reliable source.
+            - "uncertain": Evidence is missing, unrelated, inconclusive, or from a low-authority source.
             - "hallucinated": Evidence directly contradicts the claim or the claim is a known common AI hallucination.
             
-            IMPORTANT: Provide the explanation in the detected language: {language}.
+            Source Reliability Guidelines:
+            1. HIGH AUTHORITY: Official news (Reuters, AP, BBC, NYT), government (.gov), academic (.edu), and established organizations (WHO, NASA).
+            2. MEDIUM AUTHORITY: Wikipedia, specialized technical blogs, reputable niche news.
+            3. LOW AUTHORITY: Quora, Reddit, personal blogs, social media, forums.
+            
+            CRITICAL: 
+            - If the only evidence found is from a LOW AUTHORITY source, you MUST set the status to "uncertain".
+            - Provide a detailed, in-depth explanation (2-3 sentences) in {language}. 
+            - If there is a nuance (e.g., "tallest" vs "highest"), explain it clearly.
+            - Mention the specific source name used for verification.
             
             Return ONLY a JSON object:
             {{ 
                 "status": "verified" | "uncertain" | "hallucinated", 
                 "confidence": 0.0-1.0, 
-                "explanation": "A concise explanation in {language}. If no evidence was found, state that clearly." 
+                "explanation": "A detailed explanation in {language} including source names and any nuances." 
             }}
             """
             
@@ -206,14 +215,14 @@ async def verify_claims(request: VerifyRequest):
     extraction_prompt = f"""
     Analyze the following text and extract:
     1. The ISO 639-1 language code of the text (e.g., 'en', 'hi', 'es'). Default to 'en' if unsure.
-    2. Key factual claims (dates, facts, numbers, quotes). Limit to the 3 most important claims.
-    3. Any citations or references mentioned (papers, journals, authors). Limit to 2.
+    2. Key factual claims (dates, facts, numbers, quotes, scientific statements). Extract up to 6 distinct claims.
+    3. Any citations or references mentioned (papers, journals, authors, specific studies). Extract up to 4.
     
     Return ONLY a JSON object with this structure:
     {{
         "language": "en",
-        "claims": ["claim 1", "claim 2"],
-        "citations": ["citation 1", "citation 2"]
+        "claims": ["claim 1", "claim 2", ...],
+        "citations": ["citation 1", "citation 2", ...]
     }}
     
     Text: "{request.text}"
@@ -233,8 +242,8 @@ async def verify_claims(request: VerifyRequest):
                 raise ValueError("Empty response from model")
             resp_text = clean_json_response(extraction_response.text)
             extracted_data = json.loads(resp_text)
-            claims_list = extracted_data.get("claims", [])[:3]
-            citations_list = extracted_data.get("citations", [])[:2]
+            claims_list = extracted_data.get("claims", [])[:6]
+            citations_list = extracted_data.get("citations", [])[:4]
             detected_language = extracted_data.get("language", "en")
             print(f"Extracted {len(claims_list)} claims in language '{detected_language}'.")
             break
@@ -254,8 +263,9 @@ async def verify_claims(request: VerifyRequest):
                         groq_resp = await gemini_manager.call_groq_async(extraction_prompt)
                         resp_text = clean_json_response(groq_resp)
                         extracted_data = json.loads(resp_text)
-                        claims_list = extracted_data.get("claims", [])[:3]
-                        citations_list = extracted_data.get("citations", [])[:2]
+                        claims_list = extracted_data.get("claims", [])[:6]
+                        citations_list = extracted_data.get("citations", [])[:4]
+                        detected_language = extracted_data.get("language", "en")
                         print(f"Extracted {len(claims_list)} claims and {len(citations_list)} citations via Groq.")
                         break
                     except Exception as groq_err:

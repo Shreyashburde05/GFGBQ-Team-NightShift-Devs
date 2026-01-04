@@ -15,16 +15,25 @@ if tavily_available and settings.TAVILY_API_KEY:
 
 def search_web(query: str) -> dict:
     """Searches Tavily (High Quality) or DuckDuckGo (Fallback) and returns results."""
+    # Domains to avoid for fact-checking
+    EXCLUDED_DOMAINS = ["quora.com", "reddit.com", "facebook.com", "twitter.com", "x.com", "instagram.com", "pinterest.com", "tumblr.com"]
+    
     # Try Tavily first if available
     if tavily_client:
         try:
             print(f"Searching Tavily for: {query[:50]}...")
             # Tavily is optimized for LLM context
-            response = tavily_client.search(query, search_depth="advanced", max_results=3)
+            response = tavily_client.search(
+                query, 
+                search_depth="advanced", 
+                max_results=5,
+                exclude_domains=EXCLUDED_DOMAINS
+            )
             if response and response.get('results'):
                 results = response['results']
                 print(f"Tavily found {len(results)} results.")
-                combined_body = "\n".join([f"- {r.get('content', '')}" for r in results])
+                # Combine top 5 results for much richer context
+                combined_body = "\n".join([f"- [{r.get('title')}] {r.get('content', '')}" for r in results[:5]])
                 return {
                     "title": results[0].get('title', 'Multiple Sources'),
                     "body": combined_body,
@@ -37,10 +46,13 @@ def search_web(query: str) -> dict:
     print(f"Searching DuckDuckGo for: {query[:50]}...")
     try:
         with DDGS() as ddgs:
-            # Get more results for better context
-            results = list(ddgs.text(query, max_results=5))
+            # Get more results to filter
+            raw_results = list(ddgs.text(query, max_results=10))
+            # Filter out excluded domains
+            results = [r for r in raw_results if not any(domain in r.get('href', '').lower() for domain in EXCLUDED_DOMAINS)]
+            
             if results:
-                print(f"Found {len(results)} results for: {query[:30]}")
+                print(f"Found {len(results)} filtered results for: {query[:30]}")
                 # Combine top 3 results for better evidence
                 combined_body = "\n".join([f"- {r.get('body', '')}" for r in results[:3]])
                 return {
