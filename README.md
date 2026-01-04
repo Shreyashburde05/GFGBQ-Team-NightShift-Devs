@@ -106,10 +106,10 @@ npm run dev
 
 ---
 
-## 👥 Team - nightshift-devs
+## 👥 Team - NightShift-Devs
 - **Abhinav Vaidya** - [GitHub](https://github.com/abhi9vaidya)
 - **Shreyash Burde** - [GitHub](https://github.com/Shreyashburde05)
--**Meet Yemde** - [GitHub](https://github.com/kmeet124)
+- **Meet Yemde** - [GitHub](https://github.com/kmeet124)
 
 ---
 *Built for the GFG ByteQuest Hackathon 2025.*
