@@ -98,10 +98,14 @@
 
 <body>
     <div class="header">
+<<<<<<< HEAD
         <div class="logo">
             <img src="logo.png" alt="Logo" style="width: 36px; height: 36px; border-radius: 4px;">
             TrustGuard<span>AI</span>
         </div>
+=======
+        <div class="logo">TrustGuard<span>AI</span></div>
+>>>>>>> 9233c0b2173e78e87f4038743812522fb3b03b15
         <div class="status-badge">ACTIVE</div>
     </div>
 
@@ -120,10 +124,28 @@
     </p>
 
     <div class="footer">
+<<<<<<< HEAD
         Powered by Gemini 3 Flash
     </div>
 
     <script src="popup.js"></script>
+=======
+        Powered by Gemini 1.5 Flash
+    </div>
+
+    <script>
+        // Simple health check
+        fetch('http://localhost:8000/')
+            .then(() => {
+                document.getElementById('backend-status').innerText = "Connected ⚡";
+                document.getElementById('backend-status').style.color = "#38bdf8";
+            })
+            .catch(() => {
+                document.getElementById('backend-status').innerText = "Disconnected ❌";
+                document.getElementById('backend-status').style.color = "#ef4444";
+            });
+    </script>
+>>>>>>> 9233c0b2173e78e87f4038743812522fb3b03b15
 </body>
 
 </html>

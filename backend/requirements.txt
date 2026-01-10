@@ -3,6 +3,9 @@ uvicorn
 google-generativeai
 duckduckgo-search
 python-dotenv
+<<<<<<< HEAD
 groq
 tavily-python
 requests
+=======
+>>>>>>> 9233c0b2173e78e87f4038743812522fb3b03b15
