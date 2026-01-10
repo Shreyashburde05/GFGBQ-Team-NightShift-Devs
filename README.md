@@ -12,10 +12,7 @@ NightShift-Devs
 - **Backend API**: [https://trustguard-backend-5x5q.onrender.com](https://trustguard-backend-5x5q.onrender.com)
 - **Repository**: [https://github.com/Shreyashburde05/GFGBQ-Team-NightShift-Devs](https://github.com/Shreyashburde05/GFGBQ-Team-NightShift-Devs)
 
-# 5. 2-minute Demonstration Video link
-[https://drive.google.com/drive/folders/1witO2JB1uKfF6H6idu3VNczNHRRfnEMz?usp=sharing]
-
-# 6. PPT Link
+# 5. PPT Link
 [https://docs.google.com/presentation/d/1YJ4fISFQleYsSJWTPzwEKuOM0V34qpYM/edit?usp=sharing&ouid=111070728364722151974&rtpof=true&sd=true]
 
 ---
