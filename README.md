@@ -86,10 +86,6 @@ npm run dev
    - Click the floating **Verify** button to see the truth layer.
 3. **Theme Toggle**: Use the Sun/Moon icon in the header to switch between Dark and Light modes.
 
-## 📸 Relevant Screenshots
-*(Detailed screenshots will be added here)*
-
-
 ---
 
 ## 🌐 Deployment Guide
